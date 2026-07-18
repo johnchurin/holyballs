@@ -1,14 +1,17 @@
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use bevy::color::palettes::basic::GREEN;
-use bevy::color::palettes::basic::WHITE;
-use bevy::color::palettes::basic::RED;
-use bevy::color::palettes::basic::BLUE;
+// use bevy::color::palettes::basic::GREEN;
+// use bevy::color::palettes::basic::WHITE;
+// use bevy::color::palettes::basic::RED;
+// use bevy::color::palettes::basic::BLUE;
 use rand::RngExt;
-use std::f32::consts::{FRAC_PI_2, PI};
-use std::fmt::format;
 
+const DEAD_BALL: Color = Color::srgb(0.9, 0.0, 0.9);
+const LIVE_BALL: Color = Color::srgb(1.0, 0.0, 0.0);
+const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+const FENCE_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
+const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -123,7 +126,7 @@ fn un_select(
 ) {
     for (mut bouncy_ball, entity) in &mut query {
         if selected.prev_entity == Some(entity) {
-            bouncy_ball.color = Color::Srgba(Srgba::rgb(0.9, 0.0, 0.9));
+            bouncy_ball.color = DEAD_BALL;
             selected.prev_entity = None;
             break;
         }
@@ -147,7 +150,7 @@ fn cleanup_dead_balls(
 }
 
 fn drop_a_ball(
-    mut old_balls: Query<(Entity, &mut Transform), With<BouncyBall>>,
+    mut old_balls: Query<Entity, With<BouncyBall>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -160,7 +163,7 @@ fn drop_a_ball(
     let y_pos: f32 = rng.random_range(15.0..25.);
     let z_pos: f32 = rng.random_range(-9.0..9.0);
     // 4. Spawn a Dynamic Bouncing Ball
-    let bouncy_ball = BouncyBall {color: Color::from(RED)};
+    let bouncy_ball = BouncyBall {color: Color::from(LIVE_BALL)};
 
     if keyboard_input.pressed(KeyCode::ShiftLeft)
         || keyboard_input.pressed(KeyCode::ShiftRight)
@@ -168,7 +171,7 @@ fn drop_a_ball(
         scoreboard.reset();
         selected.entity = None;
         selected.prev_entity = None;
-        for (entity, ball) in old_balls.iter_mut() {
+        for entity in old_balls.iter_mut() {
             commands.entity(entity).despawn();
         }
         return;
@@ -230,7 +233,7 @@ fn box_size(
 }
 fn propagate_color(
     parent_query: Query<(&BouncyBall, &Children), Changed<BouncyBall>>,
-    mut child_query: Query<(&MeshMaterial3d<StandardMaterial>), With<BouncyBallChild>>,
+    mut child_query: Query<&MeshMaterial3d<StandardMaterial>, With<BouncyBallChild>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (bouncy_ball, children) in &parent_query {
@@ -258,7 +261,7 @@ fn cylinder_size(
         -0.5
     };
     for (mut collider, mesh3d, mut transform) in query.iter_mut() {
-        println!("Translation before {}", transform.translation.y);
+//        println!("Translation before {}", transform.translation.y);
         let h = collider.as_cylinder().unwrap().half_height();
         if h < 0.1 && increment < 0.0 {return;}
         let r = collider.as_cylinder().unwrap().radius();
@@ -268,7 +271,6 @@ fn cylinder_size(
             *mesh = Mesh::from(Cylinder::new(r, (h*2.0)+increment*2.0));
             println!("mesh y incr: {}, ext.y: {}", increment, h);
         }
-//        transform.translation.y += increment;
        *transform = Transform::from_xyz(transform.translation.x, transform.translation.y+increment, transform.translation.z);
 //        println!("h: {}, Translation y {}", h, transform.translation.y);
     }
@@ -372,7 +374,7 @@ fn setup_physics(
     commands.spawn((
 //        DirectionalLight::default(),
         PointLight {
-            color: Color::from(WHITE),
+            color: Color::from(LIGHT_COLOR),
             shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 80.0,
@@ -389,7 +391,7 @@ fn setup_physics(
         Fence {},
         Collider::cuboid(2.5, 1.0, 10.0),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(5.0, 2.0, 20.0)))),
-        MeshMaterial3d(materials.add(Color::srgb(0.0, 0.0, 1.0))),
+        MeshMaterial3d(materials.add(FENCE_COLOR)),
         Transform::from_xyz(2.0, 1.0, 0.0),
     ));
 
@@ -397,7 +399,7 @@ fn setup_physics(
         RigidBody::Fixed,
         Collider::cuboid(12.5, 0.25, 10.0),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 0.5, 20.0)))),
-        MeshMaterial3d(materials.add(Color::srgb(0.0, 1.0, 0.0))),
+        MeshMaterial3d(materials.add(FLOOR_COLOR)),
         Transform::from_xyz(2.0, -0.25, 0.0),
     ));
 
