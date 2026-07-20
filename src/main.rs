@@ -1,17 +1,18 @@
+
+use bevy::audio::Volume;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-// use bevy::color::palettes::basic::GREEN;
-// use bevy::color::palettes::basic::WHITE;
-// use bevy::color::palettes::basic::RED;
-// use bevy::color::palettes::basic::BLUE;
+
 use rand::RngExt;
 
 const DEAD_BALL: Color = Color::srgb(0.9, 0.0, 0.9);
 const LIVE_BALL: Color = Color::srgb(1.0, 0.0, 0.0);
 const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-const FENCE_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
+const _FENCE_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
 const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
+const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
+const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -22,6 +23,8 @@ fn main() {
         .add_systems(Update, cleanup_dead_balls)
         .insert_resource(Selected{ entity: None, prev_entity: None })
         .insert_resource(ScoreBoard::new())
+        .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
+        .insert_resource(PostSize{radius:1.0,height:4.0})
         .add_systems(Update, (
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
@@ -40,8 +43,9 @@ fn main() {
             handle_sensor_events,
             propagate_color,
             update_score.run_if(resource_changed::<ScoreBoard>),
-        ),
+        )
     )
+    .add_observer(handle_cylinder_events)
     .add_observer(un_select)
     .run();
 }
@@ -51,6 +55,11 @@ struct Fence {
 
 #[derive(Component)]
 struct Post {
+}
+#[derive(Resource)]
+struct PostSize {
+    radius: f32,
+    height: f32,
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -94,6 +103,9 @@ impl ScoreBoard {
 #[derive(Event)]
 struct Unselect {
 }
+#[derive(Event)]
+struct CylinderEvent {
+}
 
 #[derive(Resource)]
 struct Selected {
@@ -104,19 +116,25 @@ struct Selected {
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     mut scoreboard: ResMut<ScoreBoard>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
 ) {
     for event in messages.drain() {
 //        println!("handle_sensor_events");
         match event {
-            CollisionEvent::Started(entity1, entity2, _flags) => {
+            CollisionEvent::Started(_entity1, _entity2, _flags) => {
                 scoreboard.hit();
-                println!("Something entered the sensor: {:?} and {:?}", entity1, entity2);
-            }
-            CollisionEvent::Stopped(entity1, entity2, _flags) => {
-                println!("Something left the sensor: {:?} and {:?}", entity1, entity2);
+                // Create an entity dedicated to playing our background music
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load("audio/beep.ogg")),
+                    PlaybackSettings::ONCE,
+//                println!("Something entered the sensor: {:?} and {:?}", entity1, entity2);
+                ));}
+            CollisionEvent::Stopped(_entity1, _entity2, _flags) => {
+//                println!("Something left the sensor: {:?} and {:?}", entity1, entity2);
             }
         }
-    }
+}
 }
 
 fn un_select(
@@ -205,32 +223,6 @@ fn drop_a_ball(
     selected.entity = Some(entity);
     commands.trigger(Unselect{});
 }
-
-fn box_size(
-    mut query: Query<(&mut Collider, &Mesh3d, &mut Transform), With<Fence>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
-    let increment = if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
-    {
-        0.4
-    } else {
-        -0.4
-    };
-    for (mut collider, mesh3d, mut transform) in query.iter_mut() {
-//        println!("Translation before {}", transform.translation.y);
-        let ext = collider.as_cuboid().unwrap().half_extents();
-        if ext.y < 0.1 && increment < 0.0 {return;}
-        if let Some(mut mesh) = meshes.get_mut(&mesh3d.0) {
-            // Reconstruct the base shape with the new dimensions
-            *collider = Collider::cuboid(ext.x, ext.y+increment, ext.z);
-            *mesh = Mesh::from(Cuboid::new(ext.x*2.0, (ext.y+increment)*2.0, ext.z*2.0));
-//            println!("mesh y incr: {}, ext.y: {}", increment, ext.y);
-        }
-        transform.translation.y += increment;
-//        println!("Translation y{}", transform.translation);
-    }
-}
 fn propagate_color(
     parent_query: Query<(&BouncyBall, &Children), Changed<BouncyBall>>,
     mut child_query: Query<&MeshMaterial3d<StandardMaterial>, With<BouncyBallChild>>,
@@ -248,39 +240,108 @@ fn propagate_color(
         }
     }
 }
-fn cylinder_size(
-    mut query: Query<(&mut Collider, &mut Mesh3d, &mut Transform), With<Post>>,
-    mut sensor_query: Query<(&mut Collider, &mut Transform), (With<SensorChild>, Without<Post>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
+fn box_size(
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+    query: Single<(&mut Transform, &mut Visibility, Entity), With<Fence>>,
+    without_query: Query<&Children, Without<ColliderDisabled>>,
+    with_query: Query<Entity, With<ColliderDisabled>>,
+    impulses: Query<&mut ExternalImpulse, With<BouncyBall>>,
 ) {
-    let increment = if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
-    {
-        0.5
-    } else {
-        -0.5
-    };
-    for (mut collider, mesh3d, mut transform) in query.iter_mut() {
-//        println!("Translation before {}", transform.translation.y);
-        let h = collider.as_cylinder().unwrap().half_height();
-        if h < 0.1 && increment < 0.0 {return;}
-        let r = collider.as_cylinder().unwrap().radius();
-        if let Some(mut mesh) = meshes.get_mut(&mesh3d.0) {
-            // Reconstruct the base shape with the new dimensions
-            *collider = Collider::cylinder(h+increment,r);
-            *mesh = Mesh::from(Cylinder::new(r, (h*2.0)+increment*2.0));
-            println!("mesh y incr: {}, ext.y: {}", increment, h);
+    let going_up = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
+    let increment = if going_up { 0.5 } else { -0.5 };
+    let (mut transform, mut visibility, parent_entity) = query.into_inner();
+//    println!("Box: Scale before {}", transform.scale);
+    if going_up {
+        for mut impulse in impulses {
+            impulse.impulse = Vec3::new(0.0, 0.1, 0.0);
         }
-       *transform = Transform::from_xyz(transform.translation.x, transform.translation.y+increment, transform.translation.z);
-//        println!("h: {}, Translation y {}", h, transform.translation.y);
+        //        println!("A little push");
     }
-    for (mut collider, mut transform) in sensor_query.iter_mut() {
-        let h = collider.as_cylinder().unwrap().half_height();
-        if h < 0.1 && increment < 0.0 {return;}
-        let r = collider.as_cylinder().unwrap().radius();
-        *collider = Collider::cylinder(h+increment,r);
-        *transform = Transform::from_xyz(transform.translation.x, transform.translation.y+increment, transform.translation.z);
+    if transform.scale.y + increment <= 0.0 {
+//        println!("Collider too small...");
+        for entity in without_query.iter_descendants(parent_entity) {
+//            println!("Disabling Collider{:?}", entity);
+            commands.entity(entity).insert(ColliderDisabled);
+        }
+        *visibility = Visibility::Hidden;
+    } else {
+        for entity in with_query.iter() {
+//            println!("Enabling Collider{:?}", entity);
+            commands.entity(entity).remove::<ColliderDisabled>();
+        }
+        *visibility = Visibility::Visible;
+        transform.scale.y += increment;
     }
+//    println!("Box: Scale after {}", transform.scale);
+}
+fn handle_cylinder_events(
+    _event: On<CylinderEvent>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    post_size: ResMut<PostSize>,
+    mut commands: Commands,
+) {
+//    println!("Spawning new cylinder");
+    let mesh_handle = meshes.add(Cylinder::new( post_size.radius, post_size.height));
+    commands.spawn((
+        Post {},
+        RigidBody::Fixed,
+        Mesh3d(mesh_handle.clone()),
+        MeshMaterial3d(materials.add(CYLINDER_COLOR)),
+        Collider::from_bevy_mesh(
+            meshes.get(&mesh_handle).unwrap(),
+            &ComputedColliderShape::ConvexHull).unwrap(),
+//        AsyncSceneCollider::default(),
+        Transform::from_xyz(0.0, post_size.height/2.0, 0.0),
+        GlobalTransform::from_xyz(0.0, post_size.height/2.0, 0.0),
+    )).with_children(|parent| {
+        parent.spawn( (
+            SensorChild{},
+            Collider::cylinder(post_size.height/2.0, post_size.radius),
+            Sensor,
+            ActiveEvents::COLLISION_EVENTS,
+            //            Transform::from_xyz(0.0, 0.0, 0.0),
+        ));
+    });
+
+}
+
+fn cylinder_size(
+    mut query: Query<Entity, With<Post>>,
+    mut post_size: ResMut<PostSize>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+    impulses: Query<&mut ExternalImpulse, With<BouncyBall>>,
+//    selected: Res<Selected>,
+) {
+    // Remove the previous cylinder
+    for entity in query.iter_mut() {
+//        println!("Despawned previous");
+        commands.entity(entity).despawn();
+    }
+    let going_up = keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
+    let increment = if going_up {0.5} else {-0.5};
+    // If we're already too small and we not getting larger, noop.
+    if post_size.height <= 0.0 && !going_up{
+//        println!("Already too small");
+        return;
+    }
+    // Apply increment
+    post_size.height += increment;
+    // If the new height is zero, noop.
+    if post_size.height <=0.0 {
+//        println!("Now too small {:?} to render", post_size.height);
+        return;
+    }
+    // Need a little push on the ball when adding a fresh cylinder underneath it
+    if going_up {
+        for mut impulse in impulses {
+            impulse.impulse = Vec3::new(0.0, 0.1, 0.0);
+        }
+//        println!("A little push");
+    }
+    commands.trigger(CylinderEvent{});
 }
 
 fn impulse_up(
@@ -348,7 +409,9 @@ fn setup_physics(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+    asset_server: Res<AssetServer>)
+{
+
     // Scoreboard
     commands.spawn((
         Text::new(""),
@@ -385,39 +448,23 @@ fn setup_physics(
         Transform::from_xyz(0.0, 20.0, 10.0),
     ));
 
-    // Spawn two Static Ground Planes
-    commands.spawn((
-        RigidBody::Fixed,
-        Fence {},
-        Collider::cuboid(2.5, 1.0, 10.0),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(5.0, 2.0, 20.0)))),
-        MeshMaterial3d(materials.add(FENCE_COLOR)),
-        Transform::from_xyz(2.0, 1.0, 0.0),
-    ));
 
+    // Surface plane
     commands.spawn((
         RigidBody::Fixed,
-        Collider::cuboid(12.5, 0.25, 10.0),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 0.5, 20.0)))),
         MeshMaterial3d(materials.add(FLOOR_COLOR)),
+        Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(2.0, -0.25, 0.0),
     ));
 
-    // And a cylinder
-    commands.spawn((
-        RigidBody::Fixed,
-        Post {},
-        Collider::cylinder(2.5, 1.0),
-        InheritedVisibility::default(),
-        Mesh3d(meshes.add(Cylinder::new( 1.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(1.0, 1.0, 0.0))),
-        Transform::from_xyz(2.0, 2.5, 0.0),
+    // Add fence
+    commands.spawn( (
+        Fence {},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cube_with_hole.glb#Fence"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
-    commands.spawn((
-                SensorChild{},
-                 Collider::cylinder(2.5, 1.0),
-                  Sensor,
-                  ActiveEvents::COLLISION_EVENTS,
-                 Transform::from_xyz(2.0, 2.5, 0.0),
-    ));
+    commands.trigger(CylinderEvent{});
+
 }
