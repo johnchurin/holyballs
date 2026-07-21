@@ -3,7 +3,9 @@ use bevy::audio::Volume;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-
+use std::f32::consts::{FRAC_PI_2};
+use bevy::input::mouse::MouseMotion;
+use bevy_rapier3d::rapier::dynamics::IntegrationParameters;
 use rand::RngExt;
 
 const DEAD_BALL: Color = Color::srgb(0.9, 0.0, 0.9);
@@ -20,12 +22,14 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
 //        .add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_physics)
-        .add_systems(Update, cleanup_dead_balls)
+        .add_systems(Update, cleanup_dead_entities)
         .insert_resource(Selected{ entity: None, prev_entity: None })
         .insert_resource(ScoreBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(PostSize{radius:1.0,height:4.0})
         .add_systems(Update, (
+            toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
+            toggle_wind.run_if(input_just_pressed(KeyCode::KeyW)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
             impulse_up.run_if(input_just_pressed(KeyCode::Space)),
@@ -42,6 +46,7 @@ fn main() {
             cylinder_size.run_if(input_just_pressed(KeyCode::KeyC)),
             handle_sensor_events,
             propagate_color,
+            mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
             update_score.run_if(resource_changed::<ScoreBoard>),
         )
     )
@@ -74,6 +79,13 @@ struct BouncyBallChild {
 #[derive(Component)]
 struct SensorChild {
 }
+#[derive(Component)]
+struct PointValue {
+    value: i32,
+}
+#[derive(Component)]
+struct Toy {
+}
 
 #[derive(Resource)]
 struct ScoreBoard {
@@ -86,9 +98,9 @@ impl ScoreBoard {
     fn new() -> Self {
         Self{score: 0, round: 0, total: 0}
     }
-    fn hit(&mut self) {
-        self.score += 1;
-        self.total += 1;
+    fn hit(&mut self, incr: i32) {
+        self.score += incr;
+        self.total += incr;
     }
     fn new_round(&mut self) {
         self.score = 0;
@@ -98,6 +110,22 @@ impl ScoreBoard {
         self.score = 0;
         self.round = 0;
         self.total = 0;
+    }
+}
+#[derive(Component)]
+struct CameraController {
+    sensitivity: f32,
+    pitch: f32,
+    yaw: f32,
+}
+
+impl Default for CameraController {
+    fn default() -> Self {
+        Self {
+            sensitivity: 0.002,
+            pitch: 0.0,
+            yaw: 0.0,
+        }
     }
 }
 #[derive(Event)]
@@ -112,18 +140,81 @@ struct Selected {
     entity: Option<Entity>,
     prev_entity: Option<Entity>,
 }
+fn toggle_wind(
+    mut force_query: Query<(&mut ExternalForce)>,
+) {
+    for mut force in force_query.iter_mut() {
+        if force.force.x > 0.0 {
+            force.force.x = 0.0;
+        } else {
+            force.force.x = 2.0;
+        }
+    }
+
+}
+fn toggle_overhead_camera(
+    mut q_camera: Query<(&mut Transform, &mut Projection), With<CameraController>>,
+    mut q_light: Query<(&mut Transform), (With<PointLight>, Without<CameraController>)>,
+) {
+    for (mut transform, projection) in q_camera.iter_mut() {
+        if transform.translation.z < 25.0 {
+            *transform = Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y);
+        } else {
+            *transform = Transform::from_xyz(0.0, 30.0, 0.2).looking_at(Vec3::ZERO, Vec3::Y);
+        }
+    }
+    // Move the light, too
+    for (mut transform) in q_light.iter_mut() {
+        if transform.translation.z < 25.0 {
+            transform.translation.y = 20.0;
+            transform.translation.z = 10.0;
+        } else {
+            transform.translation.y = 20.0;
+            transform.translation.z = 1.0;
+        }
+    }
+}
+fn mouse_look_system(
+    mut mouse_motion_events: MessageReader<MouseMotion>,
+    mut impulses: Query<&mut ExternalImpulse, With<BouncyBall>>,
+    selected: ResMut<Selected>,
+) {
+    let mut delta_x = 0.0;
+    let mut delta_y = 0.0;
+    let scale = 0.05;
+    for event in mouse_motion_events.read() {
+        delta_x += event.delta.x*scale;
+        delta_y += event.delta.y*scale;
+    }
+
+    if delta_x == 0.0 && delta_y == 0.0 {
+        return;
+    }
+    if selected.entity.is_some() {
+        let mut impulse = impulses.get_mut(selected.entity.unwrap()).unwrap();
+        impulse.impulse = Vec3::new(delta_x, 0.0, delta_y );
+    }
+
+
+}
 
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     mut scoreboard: ResMut<ScoreBoard>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
+    query: Query<&PointValue>,
 ) {
     for event in messages.drain() {
 //        println!("handle_sensor_events");
         match event {
-            CollisionEvent::Started(_entity1, _entity2, _flags) => {
-                scoreboard.hit();
+            CollisionEvent::Started(entity1, entity2, _flags) => {
+                if let Ok(value) = query.get(entity1) {
+                    scoreboard.hit(value.value);
+                    println!("Value: {}", value.value);
+                } else {
+                    scoreboard.hit(1);
+                }
                 // Create an entity dedicated to playing our background music
                 commands.spawn((
                     AudioPlayer::new(asset_server.load("audio/beep.ogg")),
@@ -139,37 +230,119 @@ fn handle_sensor_events(
 
 fn un_select(
     _event: On<Unselect>,
-    mut query: Query<(&mut BouncyBall, Entity), With<BouncyBall>>,
+    mut query: Query<(&mut BouncyBall, Entity, &mut PointValue), With<BouncyBall>>,
     mut selected : ResMut<Selected>,
 ) {
-    for (mut bouncy_ball, entity) in &mut query {
+    for (mut bouncy_ball, entity, mut point_value) in &mut query {
         if selected.prev_entity == Some(entity) {
             bouncy_ball.color = DEAD_BALL;
+            bouncy_ball.color = DEAD_BALL;
+            point_value.value = 1;
             selected.prev_entity = None;
             break;
         }
     }
 }
-fn cleanup_dead_balls(
+fn cleanup_dead_entities(
     mut commands: Commands,
-    mut old_balls: Query<(Entity, &mut Transform), With<BouncyBall>>,
+    mut old_balls: Query<(Entity, &mut Transform, &PointValue)>,
     mut selected : ResMut<Selected>,
+    mut scoreboard: ResMut<ScoreBoard>,
+    asset_server: Res<AssetServer>
 ) {
     // cleanup old balls out of range
-    for (entity, ball) in old_balls.iter_mut() {
+    for (entity, ball, point_value) in old_balls.iter_mut() {
         if ball.translation.y < -20.0 {
             if selected.entity == Some(entity) {
                selected.entity = None;
             }
+            scoreboard.hit(point_value.value);
+            // Create an entity dedicated to playing our background music
+            commands.spawn((
+                AudioPlayer::new(asset_server.load("audio/beep.ogg")),
+                PlaybackSettings::ONCE,
+                //                println!("Something entered the sensor: {:?} and {:?}", entity1, entity2);
+            ));
             commands.entity(entity).despawn();
-//            println!("Ball despawned");
+            println!("Entity despawned");
         }
     }
 }
+fn drop_toys(
+    commands: &mut Commands,
+    asset_server: Res<AssetServer>
+) {
+    // Dip
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 10},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(-5.0, 10.0, 0.0).with_scale(Vec3::splat(0.5)),
+    ));
+    let x = ComputedColliderShape::TriMesh;
 
+    // smaller Cone
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 10},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cone.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(6.0, 15.0, 2.0).with_scale(Vec3::splat(0.75)),
+    ));
+    // Small Cone
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 15},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cone.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(-6.0, 10.0, 4.0),
+    ));
+    // Doughnut (torus)
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 10},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(10.0, 12.0, 7.0).with_scale(Vec3::splat(1.0)),
+        )).with_children(|parent| {
+            parent.spawn( (
+                SensorChild{},
+                Collider::ball(0.1),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                Transform::from_xyz(0.0, 0.2, 0.0),
+            ));
+    });
+
+        // Cylinder
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 5},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cylinder.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(-8.0, 11.0, 8.0),
+    ));
+    // Bumpy sphere
+    commands.spawn( (
+        RigidBody::Dynamic,
+        Toy{},
+        PointValue{value: 5},
+        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/bumpy.glb#collection"))),
+        AsyncSceneCollider::default(),
+        Transform::from_xyz(10.0, 12.0,-7.0),
+    ));
+}
 fn drop_a_ball(
     mut old_balls: Query<Entity, With<BouncyBall>>,
+    mut old_toys: Query<Entity, With<Toy>>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut selected : ResMut<Selected>,
@@ -192,6 +365,10 @@ fn drop_a_ball(
         for entity in old_balls.iter_mut() {
             commands.entity(entity).despawn();
         }
+        for entity in old_toys.iter_mut() {
+            commands.entity(entity).despawn();
+        }
+        drop_toys(&mut commands, asset_server);
         return;
     } else {
         scoreboard.new_round();
@@ -199,11 +376,13 @@ fn drop_a_ball(
     let entity = commands.spawn((
         bouncy_ball,
         RigidBody::Dynamic,
+        PointValue{value: -3},
         // Lower the Damping for a more advanced game
         Damping {
             linear_damping: 0.2,
             angular_damping: 0.2,
         },
+//        Ccd::enabled(), // doesn't help sticky balls
         Collider::ball(0.5),
         // Adding restitution makes the ball bounce
         Restitution::new(1.0),
@@ -212,6 +391,7 @@ fn drop_a_ball(
         Transform::from_xyz(x_pos, y_pos, z_pos),
         Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
         Visibility::default(),
+        ExternalForce::default(),
     )).with_children(|parent| {
         parent.spawn((
                 BouncyBallChild{},
@@ -256,9 +436,9 @@ fn box_size(
         for mut impulse in impulses {
             impulse.impulse = Vec3::new(0.0, 0.1, 0.0);
         }
-        //        println!("A little push");
+//        println!("A little push");
     }
-    if transform.scale.y + increment <= 0.0 {
+    if transform.scale.y+increment <= 0.0 {
 //        println!("Collider too small...");
         for entity in without_query.iter_descendants(parent_entity) {
 //            println!("Disabling Collider{:?}", entity);
@@ -294,10 +474,11 @@ fn handle_cylinder_events(
             &ComputedColliderShape::ConvexHull).unwrap(),
 //        AsyncSceneCollider::default(),
         Transform::from_xyz(0.0, post_size.height/2.0, 0.0),
-        GlobalTransform::from_xyz(0.0, post_size.height/2.0, 0.0),
+//        GlobalTransform::from_xyz(0.0, post_size.height/2.0, 0.0),
     )).with_children(|parent| {
         parent.spawn( (
             SensorChild{},
+            PointValue{value: 2},
             Collider::cylinder(post_size.height/2.0, post_size.radius),
             Sensor,
             ActiveEvents::COLLISION_EVENTS,
@@ -350,7 +531,7 @@ fn impulse_up(
 ) {
     if selected.entity.is_some() {
         let mut impulse = impulses.get_mut(selected.entity.unwrap()).unwrap();
-        impulse.impulse = Vec3::new(0.0, 6.0, 0.0);
+        impulse.impulse = Vec3::new(0.0, 3.0, 0.0);
     }
 }
 
@@ -431,7 +612,15 @@ fn setup_physics(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
+        CameraController::default(),
     ));
+    commands.spawn ((
+            GlobalAmbientLight {
+                color: Color::from(LIGHT_COLOR),
+                brightness: 10_000_000.0,
+                ..default()
+            },
+        ));
 
     // 2. Spawn a Light
     commands.spawn((
@@ -439,7 +628,7 @@ fn setup_physics(
         PointLight {
             color: Color::from(LIGHT_COLOR),
             shadow_maps_enabled: true,
-            intensity: 10_000_000.,
+            intensity: 5_000_000.,
             range: 80.0,
             radius: 1.0,
             shadow_depth_bias: 0.2,
@@ -457,7 +646,11 @@ fn setup_physics(
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(2.0, -0.25, 0.0),
     ));
-
+    // commands.spawn( (
+    //     WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/pooltable.glb#collection"))),
+    //     AsyncSceneCollider::default(),
+    //     Transform::from_xyz(0.0, 0.0, 0.0),
+    // ));
     // Add fence
     commands.spawn( (
         Fence {},
@@ -466,5 +659,5 @@ fn setup_physics(
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
     commands.trigger(CylinderEvent{});
-
+    drop_toys(&mut commands, asset_server);
 }
