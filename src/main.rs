@@ -86,9 +86,6 @@ struct DropToys {
 struct Score {
 }
 
-#[derive(Component)]
-struct Post {
-}
 #[derive(Clone, Copy, Debug)]
 enum BouncyBallStatus {
     Live,
@@ -227,7 +224,7 @@ fn handle_sensor_events(
                     if flags.contains(CollisionEventFlags::SENSOR) {
                         // No more points after a sensor is touched
                         let (child_entity, parent_entity, mut child_point_value) = sensor_query.get_mut(toy).unwrap();
-                        let (toy_entity, mut toy_component, mut rigid_body, mut parent_point_value) = toy_query.get_mut(parent_entity.0).unwrap();
+                        let (_toy_entity, _toy_component, _rigid_body, mut parent_point_value) = toy_query.get_mut(parent_entity.0).unwrap();
                         println!("Parent entity: {:?} (pointvalue: {:?}), child: {:?} (pointvalue: {:?})",
                                  parent_entity.0, parent_point_value.value, child_entity.entity(), child_point_value.value);
                         parent_point_value.value += child_point_value.value;
@@ -361,7 +358,7 @@ fn handle_drop_toys(
             Transform::from_xyz(-13.9, 7.0, -4.0),
         ));
         // Local cones
-        for n in 0..2 {
+        for _n in 0..2 {
             commands.spawn((
                 Toy { dynamic: true },
                 RigidBody::Dynamic,
@@ -384,7 +381,7 @@ fn handle_drop_toys(
             ));
         }
         // Local disks
-        for n in 0..4 {
+        for _n in 0..4 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
@@ -429,7 +426,7 @@ fn handle_drop_toys(
         });
 
         // Boxes
-        for n in 0..6 {
+        for _n in 0..6 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
@@ -480,7 +477,7 @@ fn handle_drop_toys(
         });
 
         // Cylinder
-        for n in 0..6 {
+        for _n in 0..6 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
@@ -530,7 +527,7 @@ fn drop_a_ball(
     mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
 ) {
     // Make any live balls dead, usually only one
-    for (mut bouncyball, mut point_value, mut material_handle) in query.iter_mut() {
+    for (mut bouncyball, mut point_value, material_handle) in query.iter_mut() {
         match bouncyball.status {
             BouncyBallStatus::Live => {
                 bouncyball.status = BouncyBallStatus::Dead;
@@ -550,7 +547,7 @@ fn drop_a_ball(
     let z_pos: f32 = rng.random_range(-9.0..9.0);
     // Spawn a Dynamic Bouncing Ball
     scoreboard.new_round();
-    let entity = commands.spawn((
+    commands.spawn((
         BouncyBall{status: BouncyBallStatus::Live},
         RigidBody::Dynamic,
         PointValue{value: -10},
@@ -573,7 +570,7 @@ fn drop_a_ball(
         ExternalForce::default(),
         Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
         MeshMaterial3d(materials.add(LIVE_BALL)),
-    )).id();
+    ));
     commands.trigger(Unselect{});
 }
 
@@ -648,10 +645,10 @@ fn setup_physics(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 )
 {
-    let mat = materials.add(StandardMaterial {
+    // Scoreboard text plus the board itself
+    let scoreboard_mat = materials.add(StandardMaterial {
         base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
         alpha_mode: AlphaMode::Mask(0.5),
         unlit: true,
@@ -659,7 +656,6 @@ fn setup_physics(
         ..Default::default()
     });
 
-    // Scoreboard text plus the board itself
     commands.spawn((
         Score{},
         Text3d::new("Starting..."),
@@ -673,7 +669,7 @@ fn setup_physics(
         },
         NotShadowCaster,
         Mesh3d::default(),
-        MeshMaterial3d(mat.clone()),
+        MeshMaterial3d(scoreboard_mat.clone()),
         Transform {
             translation: Vec3::new(-14.0, 5.5, 0.0),
             rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),   // 90 degrees
