@@ -6,6 +6,5 @@ edition = "2024"
 [dependencies]
 bevy = {version = "*", features = ["debug"]}
 bevy_rapier3d = { version = "*", features = [ "simd-stable", "debug-render-3d" ] }
-kiss3d = "0.45.0"
 rand = "0.10.2"
 bevy_rich_text3d = "0.7.0"
