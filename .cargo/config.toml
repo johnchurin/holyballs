@@ -1,0 +1,14 @@
+# Windows configuration
+#[target.x86_64-pc-windows-msvc]
+#linker = "rust-lld.exe"
+#rustflags = ["-Zshare-generics=n"]
+
+#[unstable]
+#codegen-backend = true
+
+#[profile.dev]
+#codegen-backend = "cranelift"
+
+#[profile.dev.package."*"]
+#codegen-backend = "llvm"
+

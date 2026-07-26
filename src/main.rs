@@ -7,9 +7,11 @@ use std::f32::consts::{FRAC_PI_2};
 use std::num::NonZero;
 use bevy::input::mouse::MouseMotion;
 use bevy::light::NotShadowCaster;
+use bevy::window::{PrimaryWindow, WindowMode};
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
-use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAlign, TextAtlas};
+use bevy_fontmesh::{FontMeshPlugin, TextAnchor, TextMesh, TextMeshStyle};
+//use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAlign, TextAtlas};
 const BUMP: f32 = 2.5;
 
 const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
@@ -23,22 +25,28 @@ const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const TARGET_COLOR: Color = Color::srgb(255.0/255.0, 105.0/255.0, 180.0/255.0);
 const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
+const DEVIL_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
+const ANGEL_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const SCOREBOARD_COLOR: Color = Color::srgb(0.5, 0.5, 0.0);
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
+const AUTO_NEXT_LEVEL: bool = true;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Initialize the Rapier physics engine and the debug renderer
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
 //        .add_plugins(RapierDebugRenderPlugin::default())
-        .add_plugins(Text3dPlugin{
-            default_atlas_dimension: (1024, 1024),
-            load_system_fonts: true,
-            ..Default::default()
-        })
+        .add_plugins(FontMeshPlugin::<StandardMaterial>::default())
+        // .add_plugins(Text3dPlugin{
+        //     default_atlas_dimension: (1024, 1024),
+        //     load_system_fonts: true,
+        //     ..Default::default()
+        // })
+//        .add_plugins(RichText3dPlugin) // Must be registered!
         .add_systems(Startup, setup_physics)
+        .add_systems(Startup, setup_window)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(ScoreBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
@@ -57,33 +65,40 @@ fn main() {
             impulse.run_if(input_just_pressed(KeyCode::Numpad2)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowUp)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad8)),
-            new_game.run_if(input_just_pressed(KeyCode::KeyG)),
-            handle_sensor_events,
-            handle_drop_toys,
-            handle_sound,
-            cleanup_fallen_entities,
+            start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
+            start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
             update_scoreboard.run_if(resource_changed::<ScoreBoard>),
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
+        ))
+        .add_systems(Update, (
+            handle_next_level,
+            handle_sensor_events,
+            handle_sound,
+            cleanup_fallen_entities,
         )
     )
-    .add_message::<DropToys>()
+    .add_message::<NextLevel>()
     .add_message::<Sound>()
     .run();
 }
 enum SoundType {
     Win,
     Lose,
+    Bonus,
 }
 #[derive(Message)]
 struct Sound {
     sound_type: SoundType,
 }
 #[derive(Message)]
-struct DropToys {
+struct NextLevel {
 }
 
 #[derive(Component)]
 struct Score {
+}
+#[derive(Component)]
+struct HelpWall {
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -95,9 +110,13 @@ enum BouncyBallStatus {
 struct BouncyBall {
     status: BouncyBallStatus,
 }
+#[derive(Component)]
+struct Barrier {
+}
 
 #[derive(Component)]
 struct SensorChild {
+    next_color: Color,
 }
 
 #[derive(Component)]
@@ -112,27 +131,44 @@ struct Toy {
 
 #[derive(Resource)]
 struct ScoreBoard {
+    running: bool,
     score: i32,
-    round: i32,
+    level: i32,
     total: i32,
+    toys: usize,
+    balls: usize,
 }
 
 impl ScoreBoard {
     fn new() -> Self {
-        Self{score: 0, round: 0, total: 0}
+        Self{running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0}
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
         self.total += incr;
     }
-    fn new_round(&mut self) {
+    fn use_a_ball(&mut self) {
+        self.balls -= 1;
+    }
+    fn stop(&mut self) {
+        println!("stopping");
+        self.running = false;
+    }
+    fn start(&mut self) {
+        println!("starting");
+        self.running = true;
+    }
+    fn next_level(&mut self) {
         self.score = 0;
-        self.round += 1;
+        self.level += 1;
+        self.balls = 3;
     }
     fn reset(&mut self) {
+        self.running = false;
         self.score = 0;
-        self.round = 0;
+        self.level = 0;
         self.total = 0;
+        self.balls = 0;
     }
 }
 #[derive(Component)]
@@ -154,7 +190,15 @@ impl Default for CameraController {
 #[derive(Event)]
 struct Unselect {
 }
-
+fn setup_window(
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    for mut window in &mut windows {
+        window.set_maximized(true);
+//        window.mode = WindowMode::Fullscreen{ 0: MonitorSelection::Current, 1: VideoModeSelection::Current };
+        window.title = "Holy Balls".into();
+    }
+}
 fn toggle_wind(
     mut force_query: Query<&mut ExternalForce>,
 ) {
@@ -206,10 +250,12 @@ fn mouse_look_system(
 }
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
-    // mut commands: Commands,
     ball_query: Query<(Entity, &BouncyBall), With<BouncyBall>>,
-    mut toy_query: Query<(Entity, &mut Toy, &mut RigidBody, &mut PointValue), (With<Toy>, Without<SensorChild>)>,
-    mut sensor_query: Query<(Entity, &ChildOf, &mut PointValue), (With<SensorChild>, Without<Toy>)>,
+    mut toy_query: Query<(Entity, &mut Toy, &mut RigidBody, &mut PointValue, &MeshMaterial3d<StandardMaterial>), (With<Toy>, Without<SensorChild>)>,
+    mut sensor_query: Query<(Entity, &ChildOf, &mut PointValue, &SensorChild), (With<SensorChild>, Without<Toy>)>,
+    mut commands: Commands,
+//    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for event in messages.drain() {
         match event {
@@ -223,19 +269,27 @@ fn handle_sensor_events(
                     };
                     if flags.contains(CollisionEventFlags::SENSOR) {
                         // No more points after a sensor is touched
-                        let (child_entity, parent_entity, mut child_point_value) = sensor_query.get_mut(toy).unwrap();
-                        let (_toy_entity, _toy_component, _rigid_body, mut parent_point_value) = toy_query.get_mut(parent_entity.0).unwrap();
-                        println!("Parent entity: {:?} (pointvalue: {:?}), child: {:?} (pointvalue: {:?})",
-                                 parent_entity.0, parent_point_value.value, child_entity.entity(), child_point_value.value);
-                        parent_point_value.value += child_point_value.value;
-                        child_point_value.value = 0;
-                        // But add the points to the parent of the toy
-                        println!("Sensor event");
+                        let (child_entity, parent_entity, mut child_point_value, sensor_child) = sensor_query.get_mut(toy).unwrap();
+                        if child_point_value.value != 0 {
+                            let (_toy_entity, _toy_component, _rigid_body, mut parent_point_value, material_handle) = toy_query.get_mut(parent_entity.0).unwrap();
+                            //                        println!("Parent entity: {:?} (pointvalue: {:?}), child: {:?} (pointvalue: {:?})",
+                            //                                 parent_entity.0, parent_point_value.value, child_entity.entity(), child_point_value.value);
+                            parent_point_value.value += child_point_value.value;
+                            child_point_value.value = 0;
+                            // But add the points to the parent of the toy
+                            //                        println!("Sensor event");
+                            commands.write_message(Sound { sound_type: SoundType::Bonus });
+                            // Change color (of parent) when bonus hits on a sensor child
+                            if let Some(mut material) = materials.get_mut(material_handle) {
+                                material.base_color = sensor_child.next_color;
+                            }
+                        }
                         return;
                     }
                     match bouncy_ball.status {
                         BouncyBallStatus::Live => {
-                            for (toy_entity, mut toy_component, mut rigid_body, point_value) in toy_query.iter_mut() {
+                            for (toy_entity, mut toy_component, mut rigid_body,
+                                _point_value, _material_handle) in toy_query.iter_mut() {
                                 if toy_entity == toy && !toy_component.dynamic {
  //                                   println!("Make toy dynamic");
                                     *rigid_body = RigidBody::Dynamic;
@@ -256,32 +310,55 @@ fn handle_sensor_events(
 
 fn cleanup_fallen_entities(
     mut commands: Commands,
-    ball_query: Query<&BouncyBall>,
-    shapes: Query<(Entity, &mut Transform, &PointValue)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<Toy>)>,
+    toy_query: Query<(Entity, &Toy, &Transform, &PointValue), (With<Toy>, Without<BouncyBall>)>,
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
+    scoreboard.toys = 0;
     // score and cleanup old toys and balls that are out of range
-    for (entity, shape, point_value) in shapes.iter() {
-        if shape.translation.y < -15.0 {
-            // Don't make a sound for zero point value
-            for ball in ball_query.iter() {
-                match ball.status {
-                    BouncyBallStatus::Live => {
-                        if point_value.value != 0 {
-                            scoreboard.hit(point_value.value);
-                            commands.write_message(
-                                Sound {
-                                    sound_type: if point_value.value < 0 { SoundType::Lose }
-                                    else { SoundType::Win }
-                                });
-                        }
-                    }
-                    _ => {}
-                }
-            }
+    for (entity, toy, transform, point_value) in toy_query.iter() {
+//        scoreboard.remaining += 1;
+        if transform.translation.y < -15.0 {
             commands.entity(entity).despawn();
-            println!("Entity despawned {} points", point_value.value);
+            println!("Toy despawned {} points", point_value.value);
+            scoreboard.hit(point_value.value);
+            if point_value.value != 0 {
+                commands.write_message(
+                    Sound {
+                        sound_type: if point_value.value < 0
+                        { SoundType::Lose } else { SoundType::Win }
+                    });
+            }
+        } else {
+            scoreboard.toys += 1;
         }
+    }
+
+    for (entity, ball, transform, point_value) in ball_query.iter() {
+        if transform.translation.y < -15.0 {
+            commands.entity(entity).despawn();
+            println!("Ball despawned {} points", point_value.value);
+            scoreboard.hit(point_value.value);
+            if point_value.value != 0 {
+                commands.write_message(
+                    Sound {
+                        sound_type: if point_value.value < 0
+                        { SoundType::Lose } else { SoundType::Win }
+                    });
+            }
+        }
+    }
+
+    // Don't make a sound for zero point value
+    if scoreboard.running && scoreboard.toys == 0 {
+        // Game is no longer running
+        scoreboard.stop();
+        // if AUTO_NEXT_LEVEL {
+        //     println!("Sending next level from update_toy_count");
+        //     commands.write_message(NextLevel {});
+        // }
     }
 }
 
@@ -320,113 +397,188 @@ fn handle_sound(
                     PlaybackSettings::ONCE,
                 ));
             }
+            SoundType::Bonus => {
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load("audio/tinkle.ogg")),
+                    PlaybackSettings::ONCE,
+                ));
+            }
         }
     }
 }
-fn handle_drop_toys(
-    mut messages: MessageReader<DropToys>,
+fn random_location() -> Vec3 {
+    let mut rng = rand::rng();
+    Vec3::new(rng.random_range(-10.0..10.0),
+              10.0 + rng.random_range(0.0..10.0),
+              rng.random_range(-9.0..9.0))
+}
+fn handle_next_level(
+    mut messages: MessageReader<NextLevel>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut scoreboard: ResMut<ScoreBoard>,
+    mut old_balls: Query<Entity, With<BouncyBall>>,
+    mut old_toys: Query<Entity, With<Toy>>,
+    mut old_barriers: Query<Entity, With<Barrier>>,
 ) {
     for _event in messages.read() {
+        for entity in old_balls.iter_mut() {
+            commands.entity(entity).despawn();
+        }
+        for entity in old_toys.iter_mut() {
+            commands.entity(entity).despawn();
+        }
+        for entity in old_barriers.iter_mut() {
+            commands.entity(entity).despawn();
+        }
+        scoreboard.next_level();
+        println!("Level: {}", scoreboard.level);
+        scoreboard.start();
         let mut rng = rand::rng();
-        // A Target
-        commands.spawn((
-            Toy { dynamic: false },
-            RigidBody::Fixed,
-            PointValue { value: 35 },
-            ExternalImpulse::default(), // For when this becomes dynamic
-            Friction::new(0.1),
-            Restitution::new(0.1),
-            Collider::cylinder(0.1, 0.5),
-            Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.50, 0.2)))),
-            MeshMaterial3d(materials.add(TARGET_COLOR)),
-            Transform::from_xyz(-14.0, 3.0, 4.0).with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
-        ));
-        commands.spawn((
-            Toy { dynamic: false },
-            RigidBody::Fixed,
-            PointValue { value: 45 },
-            ExternalImpulse::default(), // For when this becomes dynamic
-            Friction::new(0.1),
-            Restitution::new(0.1),
-            Collider::cuboid(0.25, 1.0, 1.0),
-            Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.50, 1.5, 1.5)))),
-            MeshMaterial3d(materials.add(TARGET_COLOR)),
-            Transform::from_xyz(-13.9, 7.0, -4.0),
-        ));
-        // Local cones
-        for _n in 0..2 {
+        if scoreboard.level > 1 {
+            // Barrier Left
             commands.spawn((
-                Toy { dynamic: true },
-                RigidBody::Dynamic,
-                Friction::new(0.9),
+                Barrier {},
+                RigidBody::Fixed,
+                Friction::new(0.0),
                 Restitution::new(0.1),
-                Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
-                MeshMaterial3d(materials.add(CONE_COLOR)),
-                ExternalImpulse::default(),
-                PointValue { value: 15 },
-                // Lower the Damping for a more advanced game
-                // Damping {
-                //     linear_damping: 0.2,
-                //     angular_damping: 0.2,
-                // },
-                Collider::cone(1.0, 0.75),
-                Transform::from_xyz(rng.random_range(-12.0..12.0),
-                                    10.0 + rng.random_range(0.0..10.0),
-                                    rng.random_range(-9.0..9.0)),
-                ExternalForce::default(),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, 0.5, 2.0)))),
+                MeshMaterial3d(materials.add(BARRIER_COLOR)),
+                Collider::cuboid(8.5, 0.25, 1.0),
+                Transform::from_xyz(-4.0, 0.25, 0.0),
             ));
-        }
-        // Local disks
-        for _n in 0..4 {
-            commands.spawn((
-                RigidBody::Dynamic,
-                Toy { dynamic: true },
-                Friction::new(0.2),
-                Restitution::new(0.1),
-                Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
-                MeshMaterial3d(materials.add(DISK_COLOR)),
-                ExternalImpulse::default(),
-                PointValue { value: 15 },
-                // Lower the Damping for a more advanced game
-                // Damping {
-                //     linear_damping: 0.2,
-                //     angular_damping: 0.2,
-                // },
-                Collider::cylinder(0.3, 0.75),
-                Transform::from_xyz(rng.random_range(-12.0..12.0),
-                                    10.0 + rng.random_range(0.0..10.0),
-                                    rng.random_range(-9.0..9.0)),
-                ExternalForce::default(),
-            ));
-        }
-        // Dip
-        commands.spawn((
-            RigidBody::Dynamic,
-            Toy { dynamic: true },
-            ExternalImpulse::default(),
-            Friction::new(0.0),
-            Restitution::new(0.1),
-            PointValue { value: 10 },
-            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
-            AsyncSceneCollider::default(),
-            Transform::from_xyz(-9.0, 8.0, 3.0).with_scale(Vec3::splat(0.5)),
-        )).with_children(|parent| {
-            parent.spawn((
-                SensorChild {},
-                Collider::ball(0.1),
-                Sensor,
-                PointValue { value: 25 },
-                ActiveEvents::COLLISION_EVENTS,
-                Transform::from_xyz(0.0, 0.2, 0.0),
-            ));
-        });
 
+            // Barrier Right
+            commands.spawn((
+                Barrier {},
+                RigidBody::Fixed,
+                Friction::new(0.0),
+                Restitution::new(0.1),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 0.5, 20.0)))),
+                MeshMaterial3d(materials.add(BARRIER_COLOR)),
+                Collider::cuboid(1.0, 0.25, 10.0),
+                Transform::from_xyz(5.0, 0.25, 0.0),
+            ));
+        }
+        // A Target
+        if scoreboard.level > 2 {
+            commands.spawn((
+                Toy { dynamic: false },
+                RigidBody::Fixed,
+                PointValue { value: 35 },
+                ExternalImpulse::default(), // For when this becomes dynamic
+                Friction::new(0.1),
+                Restitution::new(0.1),
+                Collider::cylinder(0.1, 0.5),
+                Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.50, 0.2)))),
+                MeshMaterial3d(materials.add(TARGET_COLOR)),
+                Transform::from_xyz(-14.0, 3.0, 5.0).with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
+            ));
+            commands.spawn((
+                Toy { dynamic: false },
+                RigidBody::Fixed,
+                PointValue { value: 45 },
+                ExternalImpulse::default(), // For when this becomes dynamic
+                Friction::new(0.1),
+                Restitution::new(0.1),
+                Collider::cuboid(0.25, 1.0, 1.0),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.50, 1.5, 1.5)))),
+                MeshMaterial3d(materials.add(TARGET_COLOR)),
+                Transform::from_xyz(-13.9, 7.0, -5.0),
+            ));
+        }
+        // // Local cones
+        // for _n in 0..2 {
+        //     commands.spawn((
+        //         Toy { dynamic: true },
+        //         RigidBody::Dynamic,
+        //         Friction::new(0.9),
+        //         Restitution::new(0.1),
+        //         Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
+        //         MeshMaterial3d(materials.add(CONE_COLOR)),
+        //         ExternalImpulse::default(),
+        //         PointValue { value: 15 },
+        //         // Lower the Damping for a more advanced game
+        //         // Damping {
+        //         //     linear_damping: 0.2,
+        //         //     angular_damping: 0.2,
+        //         // },
+        //         Collider::cone(1.0, 0.75),
+        //         Transform::from_xyz(rng.random_range(-12.0..12.0),
+        //                             10.0 + rng.random_range(0.0..10.0),
+        //                             rng.random_range(-9.0..9.0)),
+        //         ExternalForce::default(),
+        //     ));
+        // }
+        // // Local disks
+        // for _n in 0..4 {
+        //     commands.spawn((
+        //         RigidBody::Dynamic,
+        //         Toy { dynamic: true },
+        //         Friction::new(0.2),
+        //         Restitution::new(0.1),
+        //         Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
+        //         MeshMaterial3d(materials.add(DISK_COLOR)),
+        //         ExternalImpulse::default(),
+        //         PointValue { value: 15 },
+        //         // Lower the Damping for a more advanced game
+        //         // Damping {
+        //         //     linear_damping: 0.2,
+        //         //     angular_damping: 0.2,
+        //         // },
+        //         Collider::cylinder(0.3, 0.75),
+        //         Transform::from_xyz(rng.random_range(-12.0..12.0),
+        //                             10.0 + rng.random_range(0.0..10.0),
+        //                             rng.random_range(-9.0..9.0)),
+        //         ExternalForce::default(),
+        //     ));
+        // }
+        // commands.spawn((
+        //     RigidBody::Dynamic,
+        //     Toy { dynamic: true },
+        //     Friction::new(0.2),
+        //     Restitution::new(0.1),
+        //     Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
+        //     MeshMaterial3d(materials.add(DISK_COLOR)),
+        //     ExternalImpulse::default(),
+        //     PointValue { value: 15 },
+        //     // Lower the Damping for a more advanced game
+        //     // Damping {
+        //     //     linear_damping: 0.2,
+        //     //     angular_damping: 0.2,
+        //     // },
+        //     Collider::cylinder(0.3, 0.75),
+        //     Transform::from_xyz(rng.random_range(-12.0..12.0),
+        //                         10.0 + rng.random_range(0.0..10.0),
+        //                         rng.random_range(-9.0..9.0)),
+        //     ExternalForce::default(),
+        // ));
+        // // Dip
+        // commands.spawn((
+        //     RigidBody::Dynamic,
+        //     Toy { dynamic: true },
+        //     ExternalImpulse::default(),
+        //     Friction::new(0.0),
+        //     Restitution::new(0.1),
+        //     PointValue { value: 10 },
+        //     WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
+        //     AsyncSceneCollider::default(),
+        //     Transform::from_xyz(-9.0, 8.0, 3.0).with_scale(Vec3::splat(0.4)),
+        // )).with_children(|parent| {
+        //     parent.spawn((
+        //         SensorChild {},
+        //         Collider::ball(0.1),
+        //         Sensor,
+        //         PointValue { value: 25 },
+        //         ActiveEvents::COLLISION_EVENTS,
+        //         Transform::from_xyz(0.0, 0.2, 0.0),
+        //     ));
+        // });
+        //
         // Boxes
-        for _n in 0..6 {
+        for _n in 0..4 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
@@ -434,8 +586,8 @@ fn handle_drop_toys(
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 1.0, 1.0)))),
                 MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: if rng.random_bool(0.30) { BOX_COLOR_TRANSPARENT } else { BOX_COLOR },
-                    alpha_mode: AlphaMode::Blend,
+                    base_color: BOX_COLOR,
+//                    alpha_mode: AlphaMode::Blend,
                     ..default()
                 })),
                 NotShadowCaster,
@@ -447,85 +599,154 @@ fn handle_drop_toys(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cuboid(0.5, 0.5, 0.5),
-                Transform::from_xyz(rng.random_range(-12.0..12.0),
-                                    10.0 + rng.random_range(0.0..10.0),
-                                    rng.random_range(-9.0..9.0)),
+                Transform::from_translation(random_location()),
                 ExternalForce::default(),
             ));
         };
-        // Doughnut (torus)
-        commands.spawn((
-            RigidBody::Dynamic,
-            Toy { dynamic: true },
-            Friction::new(0.0),
-            Restitution::new(0.1),
-            ExternalImpulse::default(),
-            PointValue { value: 10 },
-            ColliderMassProperties::Density(0.25),
-            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
-            AsyncSceneCollider::default(),
-            Transform::from_xyz(10.0, 12.0, 7.0).with_scale(Vec3::splat(1.0)),
-        )).with_children(|parent| {
-            parent.spawn((
-                SensorChild {},
-                Collider::ball(0.1),
-                PointValue { value: 20 },
-                Sensor,
-                ActiveEvents::COLLISION_EVENTS,
-                Transform::from_xyz(0.0, 0.2, 0.0),
-            ));
-        });
-
-        // Cylinder
-        for _n in 0..6 {
+        // Transparent boxes
+        if scoreboard.level > 4 {
+            for _n in 0..4 {
+                commands.spawn((
+                    RigidBody::Dynamic,
+                    Toy { dynamic: true },
+                    Friction::new(0.2),
+                    Restitution::new(0.1),
+                    Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 1.0, 1.0)))),
+                    MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: BOX_COLOR_TRANSPARENT,
+                        alpha_mode: AlphaMode::Blend,
+                        ..default()
+                    })),
+                    NotShadowCaster,
+                    ExternalImpulse::default(),
+                    PointValue { value: 15 },
+                    // Lower the Damping for a more advanced game
+                    // Damping {
+                    //     linear_damping: 0.2,
+                    //     angular_damping: 0.2,
+                    // },
+                    Collider::cuboid(0.5, 0.5, 0.5),
+                    Transform::from_translation(random_location()),
+                    ExternalForce::default(),
+                ));
+            };
+        }
+        // // Doughnut (torus)
+        // commands.spawn((
+        //     RigidBody::Dynamic,
+        //     Toy { dynamic: true },
+        //     Friction::new(0.0),
+        //     Restitution::new(0.1),
+        //     ExternalImpulse::default(),
+        //     PointValue { value: 10 },
+        //     ColliderMassProperties::Density(0.25),
+        //     WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
+        //     AsyncSceneCollider::default(),
+        //     Transform::from_xyz(10.0, 12.0, 7.0).with_scale(Vec3::splat(1.0)),
+        // )).with_children(|parent| {
+        //     parent.spawn((
+        //         SensorChild {},
+        //         Collider::ball(0.1),
+        //         PointValue { value: 20 },
+        //         Sensor,
+        //         ActiveEvents::COLLISION_EVENTS,
+        //         Transform::from_xyz(0.0, 0.2, 0.0),
+        //     ));
+        // });
+        //
+        // // Cylinder
+        // for _n in 0..6 {
+        //     commands.spawn((
+        //         RigidBody::Dynamic,
+        //         Toy { dynamic: true },
+        //         Friction::new(0.8),
+        //         Restitution::new(0.1),
+        //         ExternalImpulse::default(),
+        //         PointValue { value: 5 },
+        //         WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cylinder.glb#collection"))),
+        //         AsyncSceneCollider::default(),
+        //         Transform::from_xyz(rng.random_range(-12.0..12.0), 4.0, rng.random_range(-9.0..9.0)).with_scale(Vec3::splat(0.75)),
+        //     ));
+        // }
+        // // Devil Disk
+        if scoreboard.level > 5 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
-                Friction::new(0.8),
+                Friction::new(0.2),
+                Restitution::new(0.1),
+                Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
+                MeshMaterial3d(materials.add(DEVIL_COLOR)),
+                ExternalImpulse::default(),
+                PointValue { value: -50 },
+                // Lower the Damping for a more advanced game
+                // Damping {
+                //     linear_damping: 0.2,
+                //     angular_damping: 0.2,
+                // },
+                Collider::cylinder(0.3, 0.75),
+                Transform::from_translation(random_location()),
+                ExternalForce::default(),
+                )).with_children(|parent| {
+                    parent.spawn((
+                        SensorChild {next_color: ANGEL_COLOR},
+                        Collider::ball(0.2),
+                        Sensor,
+                        PointValue { value: 100 },
+                        ActiveEvents::COLLISION_EVENTS,
+                        Transform::from_xyz(0.0, 0.6, 0.0),
+                    ));
+                });
+//            ));
+        }
+        // Bumpy sphere
+        if scoreboard.level > 3 {
+            commands.spawn((
+                RigidBody::Dynamic,
+                Toy { dynamic: true },
+                Friction::new(0.0),
                 Restitution::new(0.1),
                 ExternalImpulse::default(),
                 PointValue { value: 5 },
-                WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cylinder.glb#collection"))),
+                WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/bumpy.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_xyz(rng.random_range(-12.0..12.0), 4.0, rng.random_range(-9.0..9.0)).with_scale(Vec3::splat(0.75)),
+                Transform::from_translation(random_location()),
             ));
         }
-        // Bumpy sphere
-        commands.spawn((
-            RigidBody::Dynamic,
-            Toy { dynamic: true },
-            Friction::new(0.0),
-            Restitution::new(0.1),
-            ExternalImpulse::default(),
-            PointValue { value: 5 },
-            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/bumpy.glb#collection"))),
-            AsyncSceneCollider::default(),
-            Transform::from_xyz(10.0, 12.0, -7.0),
-        ));
     }
 }
-fn new_game(
-    mut old_balls: Query<Entity, With<BouncyBall>>,
-    mut old_toys: Query<Entity, With<Toy>>,
+fn start_new_game(
     mut scoreboard: ResMut<ScoreBoard>,
     mut commands: Commands,
 ) {
     scoreboard.reset();
-    for entity in old_balls.iter_mut() {
-        commands.entity(entity).despawn();
-    }
-    for entity in old_toys.iter_mut() {
-        commands.entity(entity).despawn();
-    }
-    commands.write_message(DropToys{});
+    println!("Sending next level from start_new_game");
+    commands.write_message(NextLevel {});
+}
+fn start_next_level(
+    mut scoreboard: ResMut<ScoreBoard>,
+//    mut old_balls: Query<Entity, With<BouncyBall>>,
+    mut commands: Commands,
+) {
+    // for entry in old_balls.iter() {
+    //     println!("Entity: {:?}", entry);
+    // }
+    println!("Sending next level from start_next_Level");
+    commands.write_message(NextLevel {});
 }
 fn drop_a_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut scoreboard: ResMut<ScoreBoard>,
     mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
+    mut scoreboard: ResMut<ScoreBoard>,
 ) {
+    // Deduct 1 ball from count
+    if scoreboard.balls == 0 {
+        println!("You have no balls");
+        return;
+    }
+    scoreboard.use_a_ball();
     // Make any live balls dead, usually only one
     for (mut bouncyball, mut point_value, material_handle) in query.iter_mut() {
         match bouncyball.status {
@@ -546,7 +767,6 @@ fn drop_a_ball(
     let y_pos: f32 = rng.random_range(15.0..25.);
     let z_pos: f32 = rng.random_range(-9.0..9.0);
     // Spawn a Dynamic Bouncing Ball
-    scoreboard.new_round();
     commands.spawn((
         BouncyBall{status: BouncyBallStatus::Live},
         RigidBody::Dynamic,
@@ -624,56 +844,62 @@ fn impulse(
     }
 }
 
-
 fn update_scoreboard(
-    mut query: Query<&mut Text3d, With<Score>>,
+    mut scoreboard_query: Query<&mut TextMesh, With<Score>>,
     scoreboard: Res<ScoreBoard>,
-    toy_query: Query<&Transform, With<Toy>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
-    for mut text in query.iter_mut() {
-        if scoreboard.round == 0 {
-            *text = Text3d::new("Press enter\nto drop \na ball");
-        } else {
-            let remaining = toy_query.count();
-            *text = Text3d::new(format!("Level: {}\nScore: {}\nTotal: {}\nRemaining: {}",
-                              scoreboard.round, scoreboard.score, scoreboard.total, remaining));
-        }
-    }
+    for mut text in scoreboard_query.iter_mut() {
+//        if scoreboard.running {
+        text.text = format!("Level: {}\nScore: {}\nTotal: {}\nToys: {}\nBalls: {}",
+                          scoreboard.level,
+                          scoreboard.score, scoreboard.total,
+                            scoreboard.toys, scoreboard.balls);
+        };
+//        if scoreboard.running {
+//            *text = Text3d::new("Press enter\nto drop \na ball");
+//        }
+//    }
 }
 
 fn setup_physics(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+
 )
 {
-    // Scoreboard text plus the board itself
-    let scoreboard_mat = materials.add(StandardMaterial {
-        base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
-        alpha_mode: AlphaMode::Mask(0.5),
-        unlit: true,
-        cull_mode: None,
-        ..Default::default()
-    });
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands.spawn((
         Score{},
-        Text3d::new("Starting..."),
-        Text3dStyling {
-            size: 64.,
-            color: Srgba::BLACK,
-            world_scale: Some(Vec2::splat(1.0)),
-            layer_offset: 0.001,
-            align: TextAlign::Center,
-            ..Default::default()
+        TextMesh {
+            text: "Starting".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.1,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                ..default()
+            },
         },
         NotShadowCaster,
         Mesh3d::default(),
-        MeshMaterial3d(scoreboard_mat.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.2, 0.3, 0.8), // Blueish metallic
+            metallic: 0.8,             // Slightly less metallic to show some base color
+            perceptual_roughness: 0.3, // Rougher to catch more light highlights
+            reflectance: 0.8,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        })),
         Transform {
-            translation: Vec3::new(-14.0, 5.5, 0.0),
+            translation: Vec3::new(-14.0, 5.0, 0.0),
             rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),   // 90 degrees
-            scale: Vec3::splat(1.5),
+            scale: Vec3::splat(0.9),
         },
     ));
     commands.spawn((
@@ -684,6 +910,38 @@ fn setup_physics(
         MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
         Collider::cuboid(0.25, 3.5, 7.0),
         Transform::from_xyz(-14.5, 5.0, 0.0),
+    ));
+//    let test = Text3d::parse_raw("{font-family:Arial}{color:red}I got nothing");
+
+    // Help wall
+    commands.spawn((
+        HelpWall{},
+        TextMesh {
+            text: "I got nothing".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.08,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                ..default()
+            },
+        },
+        NotShadowCaster,
+        Mesh3d::default(),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.2, 0.3, 0.8), // Blueish metallic
+            metallic: 0.8,             // Slightly less metallic to show some base color
+            perceptual_roughness: 0.3, // Rougher to catch more light highlights
+            reflectance: 0.8,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform {
+            translation: Vec3::new(-0.0, -1.0, 12.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
+            scale: Vec3::splat(1.0),
+        },
     ));
 
     // commands.spawn((
@@ -741,53 +999,39 @@ fn setup_physics(
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));
-    // Barrier Left
-    commands.spawn((
-        RigidBody::Fixed,
-        Friction::new(0.0),
-        Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, 0.5, 2.0)))),
-        MeshMaterial3d(materials.add(BARRIER_COLOR)),
-        Collider::cuboid(8.5, 0.25, 1.0),
-        Transform::from_xyz(-4.0, 0.25, 0.0),
-    ));
-
-    // Barrier Right
-    commands.spawn((
-        RigidBody::Fixed,
-        Friction::new(0.0),
-        Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 0.5, 20.0)))),
-        MeshMaterial3d(materials.add(BARRIER_COLOR)),
-        Collider::cuboid(1.0, 0.25, 10.0),
-        Transform::from_xyz(5.0, 0.25, 0.0),
-    ));
-
     // Title
     let mat = materials.add(StandardMaterial {
-        base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
+//        base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
         alpha_mode: AlphaMode::Mask(0.5),
         unlit: true,
         cull_mode: None,
         ..Default::default()
     });
     commands.spawn((
-        Text3d::new("Holy Balls"),
-        Text3dStyling {
-            size: 64.,
-            stroke: NonZero::new(10),
-            color: Srgba::new(0.0, 0.0, 1.0, 1.),
-            stroke_color: Srgba::BLACK,
-            world_scale: Some(Vec2::splat(0.25)),
-            layer_offset: 0.001,
-            ..Default::default()
+        TextMesh {
+            text: "Holy Balls".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.4,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                ..default()
+            },
         },
         Mesh3d::default(),
-        MeshMaterial3d(mat.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: LIVE_BALL,
+            metallic: 0.8,             // Slightly less metallic to show some base color
+            perceptual_roughness: 0.3, // Rougher to catch more light highlights
+            reflectance: 0.8,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        })),
         Transform {
-            translation: Vec3::new(1., 5., -10.0),
+            translation: Vec3::new(0., 5., -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.),
-            scale: Vec3::splat(10.0),
+            scale: Vec3::splat(4.0),
         },
     ));
     // Add fence
@@ -799,6 +1043,5 @@ fn setup_physics(
     //     AsyncSceneCollider::default(),
     //     Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 0.2, 1.0)),
     // ));
-//    commands.trigger(CylinderEvent{});
-    commands.write_message(DropToys{});
+    commands.write_message(NextLevel {});
 }
