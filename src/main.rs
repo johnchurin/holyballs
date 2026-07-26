@@ -194,9 +194,6 @@ impl Default for CameraController {
         }
     }
 }
-#[derive(Event)]
-struct Unselect {
-}
 fn setup_window(
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
@@ -250,7 +247,6 @@ fn mouse_look_system(
         delta_x += event.delta.x*scale;
         delta_y += event.delta.y*scale;
     }
-
     if delta_x == 0.0 && delta_y == 0.0 {
         return;
     }
@@ -261,7 +257,6 @@ fn handle_sensor_events(
     mut toy_query: Query<(Entity, &mut Toy, &mut RigidBody, &mut PointValue, &MeshMaterial3d<StandardMaterial>), (With<Toy>, Without<SensorChild>)>,
     mut sensor_query: Query<(Entity, &ChildOf, &mut PointValue, &SensorChild), (With<SensorChild>, Without<Toy>)>,
     mut commands: Commands,
-//    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for event in messages.drain() {
@@ -347,7 +342,6 @@ fn cleanup_fallen_entities(
             scoreboard.toys += 1;
         }
     }
-
     for (entity, ball, transform, point_value) in ball_query.iter() {
         if transform.translation.y < -15.0 {
             commands.entity(entity).despawn();
@@ -359,6 +353,16 @@ fn cleanup_fallen_entities(
                 } else {
                     commands.write_message( HelpMessage{text: format!("You lost {} points", -point_value.value)});
                 }
+                // If our last, live ball, then game over.
+                if scoreboard.balls == 0 {
+                    match ball.status {
+                        BouncyBallStatus::Live => {
+                            commands.write_message( HelpMessage{text: "No balls left. Press G to start new game.".to_string()});
+                        }
+                        _ => {}
+                    }
+                }
+
                 commands.write_message(
                     Sound {
                         sound_type: if point_value.value < 0
@@ -372,7 +376,7 @@ fn cleanup_fallen_entities(
     if scoreboard.running && scoreboard.toys == 0 {
         // Round is no longer running
         scoreboard.stop();
-        commands.write_message( HelpMessage{text: format!("No toys left. Press N to play level {}.", scoreboard.level+1)});
+        commands.write_message( HelpMessage{text: format!("You cleared this level. Press N to play level {}.", scoreboard.level+1)});
     }
         // if AUTO_NEXT_LEVEL {
         //     println!("Sending next level from update_toy_count");
@@ -825,7 +829,6 @@ fn drop_a_ball(
         Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
         MeshMaterial3d(materials.add(LIVE_BALL)),
     ));
-    commands.trigger(Unselect{});
 }
 
 fn impulse(
