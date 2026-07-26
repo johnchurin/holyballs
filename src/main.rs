@@ -73,10 +73,12 @@ fn main() {
         .add_systems(Update, (
             handle_next_level,
             handle_sensor_events,
+            handle_help_message,
             handle_sound,
             cleanup_fallen_entities,
         )
     )
+    .add_message::<HelpMessage>()
     .add_message::<NextLevel>()
     .add_message::<Sound>()
     .run();
@@ -92,6 +94,11 @@ struct Sound {
 }
 #[derive(Message)]
 struct NextLevel {
+}
+
+#[derive(Message)]
+struct HelpMessage {
+    text: String,
 }
 
 #[derive(Component)]
@@ -324,7 +331,12 @@ fn cleanup_fallen_entities(
             commands.entity(entity).despawn();
             println!("Toy despawned {} points", point_value.value);
             scoreboard.hit(point_value.value);
-            if point_value.value != 0 {
+            if point_value.value > 0 {
+                commands.write_message( HelpMessage{text: format!("You scored {} points!",point_value.value)});
+            } else {
+                commands.write_message( HelpMessage{text: format!("You lost {} points", -point_value.value)});
+            }
+            if point_value.value != 0 && scoreboard.running {
                 commands.write_message(
                     Sound {
                         sound_type: if point_value.value < 0
@@ -341,7 +353,12 @@ fn cleanup_fallen_entities(
             commands.entity(entity).despawn();
             println!("Ball despawned {} points", point_value.value);
             scoreboard.hit(point_value.value);
-            if point_value.value != 0 {
+            if point_value.value != 0 && scoreboard.running {
+                if point_value.value > 0 {
+                    commands.write_message( HelpMessage{text: format!("You scored {} points!",point_value.value)});
+                } else {
+                    commands.write_message( HelpMessage{text: format!("You lost {} points", -point_value.value)});
+                }
                 commands.write_message(
                     Sound {
                         sound_type: if point_value.value < 0
@@ -353,13 +370,14 @@ fn cleanup_fallen_entities(
 
     // Don't make a sound for zero point value
     if scoreboard.running && scoreboard.toys == 0 {
-        // Game is no longer running
+        // Round is no longer running
         scoreboard.stop();
+        commands.write_message( HelpMessage{text: format!("No toys left. Press N to play level {}.", scoreboard.level+1)});
+    }
         // if AUTO_NEXT_LEVEL {
         //     println!("Sending next level from update_toy_count");
         //     commands.write_message(NextLevel {});
         // }
-    }
 }
 
 // Drop a Mouse which has a lot of facets
@@ -378,6 +396,18 @@ fn drop_a_mouse(
         Transform::from_xyz(-4.0, 5.0, 5.5).with_scale(Vec3::splat(2.0)),
     ));
 }
+fn handle_help_message (
+    mut messages: MessageReader<HelpMessage>,
+    mut query: Query<&mut TextMesh, With<HelpWall>>,
+    mut commands: Commands,
+) {
+    for message in messages.read() {
+        for mut text_mesh in query.iter_mut() {
+            text_mesh.text = message.text.clone();
+        }
+    }
+}
+
 fn handle_sound(
     mut messages: MessageReader<Sound>,
     asset_server: Res<AssetServer>,
@@ -433,8 +463,9 @@ fn handle_next_level(
         for entity in old_barriers.iter_mut() {
             commands.entity(entity).despawn();
         }
+        commands.write_message( HelpMessage{text: "Press Enter to drop a ball".to_string()});
         scoreboard.next_level();
-        println!("Level: {}", scoreboard.level);
+//        println!("Level: {}", scoreboard.level);
         scoreboard.start();
         let mut rng = rand::rng();
         if scoreboard.level > 1 {
@@ -619,7 +650,7 @@ fn handle_next_level(
                     })),
                     NotShadowCaster,
                     ExternalImpulse::default(),
-                    PointValue { value: 15 },
+                    PointValue { value: 20 },
                     // Lower the Damping for a more advanced game
                     // Damping {
                     //     linear_damping: 0.2,
@@ -722,6 +753,7 @@ fn start_new_game(
     scoreboard.reset();
     println!("Sending next level from start_new_game");
     commands.write_message(NextLevel {});
+    commands.write_message( HelpMessage{text: "Press the N key to start the first level".to_string()});
 }
 fn start_next_level(
     mut scoreboard: ResMut<ScoreBoard>,
@@ -743,9 +775,11 @@ fn drop_a_ball(
 ) {
     // Deduct 1 ball from count
     if scoreboard.balls == 0 {
-        println!("You have no balls");
+//        println!("You have no balls");
+        commands.write_message(HelpMessage { text: "You have no balls left".to_string() });
         return;
     }
+    commands.write_message( HelpMessage{text: "Use arrow keys to push the ball around.".to_string()});
     scoreboard.use_a_ball();
     // Make any live balls dead, usually only one
     for (mut bouncyball, mut point_value, material_handle) in query.iter_mut() {
@@ -852,7 +886,7 @@ fn update_scoreboard(
 ) {
     for mut text in scoreboard_query.iter_mut() {
 //        if scoreboard.running {
-        text.text = format!("Level: {}\nScore: {}\nTotal: {}\nToys: {}\nBalls: {}",
+        text.text = format!("Level: {}\nScore: {}\nTotal Score: {}\nToys: {}\nBalls: {}",
                           scoreboard.level,
                           scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
