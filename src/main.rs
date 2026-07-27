@@ -4,15 +4,11 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
-use std::num::NonZero;
-use std::time::Duration;
-use bevy::input::mouse::MouseMotion;
 use bevy::light::NotShadowCaster;
-use bevy::window::{PrimaryWindow, WindowMode};
+use bevy::window::{PrimaryWindow};
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
-//use bevy_rich_text3d::{Text3d, Text3dPlugin, Text3dStyling, TextAlign, TextAtlas};
 const BUMP: f32 = 2.5;
 
 const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
@@ -26,13 +22,12 @@ const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const TARGET_COLOR: Color = Color::srgb(255.0/255.0, 105.0/255.0, 180.0/255.0);
 const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
-const DEVIL_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
-const ANGEL_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+const BLACK_DISK_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
+const WHITE_DISK_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const SCOREBOARD_COLOR: Color = Color::srgb(0.5, 0.5, 0.0);
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
-const AUTO_NEXT_LEVEL: bool = true;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -76,14 +71,18 @@ fn main() {
             clear_scoring_text,
         ))
         .add_systems(Update, (
+            handle_point_value_message,
             handle_activate_game,
             handle_impulse_message,
             handle_next_level,
             handle_sensor_events,
             handle_help_message,
             handle_sound,
+            handle_asset_color_propagation,
             score_fallen_entities,
         ))
+    .add_message::<PointValueMessage>()
+    .add_message::<PropagateAssetColorMessage>()
     .add_message::<ActivateGameMessage>()
     .add_message::<ImpulseMessage>()
     .add_message::<HelpMessage>()
@@ -121,7 +120,16 @@ struct ImpulseMessage {
 #[derive(Message)]
 struct ActivateGameMessage {
 }
-
+#[derive(Message, Debug)]
+struct PropagateAssetColorMessage{
+    entity: Entity,
+    color: Color,
+}
+#[derive(Message, Debug)]
+struct PointValueMessage{
+    entity: Entity,
+    value: i32,
+}
 #[derive(Message)]
 struct SoundMessage {
     sound_type: SoundType,
@@ -148,20 +156,15 @@ struct HelpWall {
 struct ScoringWall {
 }
 
-#[derive(Clone, Copy, Debug)]
-enum BouncyBallStatus {
-    Live,
-    Dead,
-}
 #[derive(Component, Clone, Copy, Debug)]
 struct BouncyBall {
-    status: BouncyBallStatus,
+    live: bool,
 }
 #[derive(Component)]
 struct Barrier {
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 struct SensorChild {
     next_color: Color,
 }
@@ -221,20 +224,8 @@ impl ScoreBoard {
 }
 #[derive(Component)]
 struct CameraController {
-    sensitivity: f32,
-    pitch: f32,
-    yaw: f32,
 }
 
-impl Default for CameraController {
-    fn default() -> Self {
-        Self {
-            sensitivity: 0.002,
-            pitch: 0.0,
-            yaw: 0.0,
-        }
-    }
-}
 fn setup_window(
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
@@ -264,9 +255,7 @@ fn clear_scoring_text(
         if time.elapsed_secs() > timer.start+timer.duration {
             timer.active = false;
             commands.write_message(HelpMessage{help_type: HelpType::Score, text: "--".to_string()});
-            info!("Countdown finished!");
-//         } else {
-// //            info!("Start: {:.5} current: {:.5}", timer.start, time.elapsed_secs());
+//            info!("Countdown finished!");
         }
     }
 }
@@ -293,71 +282,57 @@ fn toggle_overhead_camera(
         }
     }
 }
-fn mouse_look_system(
-    mut mouse_motion_events: MessageReader<MouseMotion>,
-) {
-    let mut delta_x = 0.0;
-    let mut delta_y = 0.0;
-    let scale = 0.05;
-    for event in mouse_motion_events.read() {
-        delta_x += event.delta.x*scale;
-        delta_y += event.delta.y*scale;
-    }
-    if delta_x == 0.0 && delta_y == 0.0 {
-        return;
-    }
-}
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     ball_query: Query<(Entity, &BouncyBall), With<BouncyBall>>,
-    mut toy_query: Query<(Entity, &mut Toy, &mut RigidBody, &mut PointValue, &MeshMaterial3d<StandardMaterial>), (With<Toy>, Without<SensorChild>)>,
-    mut sensor_query: Query<(Entity, &ChildOf, &mut PointValue, &SensorChild), (With<SensorChild>, Without<Toy>)>,
+    mut toy_query: Query<(Entity), (With<Toy>, Without<SensorChild>)>,
+    mut sensor_query: Query<(&ChildOf, &mut PointValue, &SensorChild), (With<SensorChild>, Without<Toy>)>,
+    mut rigid_query: Query<(Entity, &mut Toy, &mut RigidBody), (With<Toy>, Without<SensorChild>)>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for event in messages.drain() {
         match event {
             CollisionEvent::Started(entity1, entity2, flags) => {
-                for (ball_entity, bouncy_ball) in ball_query.iter() {
-//                    println!("Collision {:?} {:?}. Ball is: {:?} and it is {:?}", entity1, entity2, ball_entity, bouncy_ball);
-                    let toy = if ball_entity == entity2 {
-                        entity1
-                    } else {
-                        entity2
-                    };
-                    if flags.contains(CollisionEventFlags::SENSOR) {
-                        // No more points after a sensor is touched
-                        let (child_entity, parent_entity, mut child_point_value, sensor_child) = sensor_query.get_mut(toy).unwrap();
-                        if child_point_value.value != 0 {
-                            let (_toy_entity, _toy_component, _rigid_body, mut parent_point_value, material_handle) = toy_query.get_mut(parent_entity.0).unwrap();
-                            //                        println!("Parent entity: {:?} (pointvalue: {:?}), child: {:?} (pointvalue: {:?})",
-                            //                                 parent_entity.0, parent_point_value.value, child_entity.entity(), child_point_value.value);
-                            parent_point_value.value += child_point_value.value;
-                            child_point_value.value = 0;
-                            // But add the points to the parent of the toy
-                            //                        println!("Sensor event");
-                            commands.write_message(SoundMessage { sound_type: SoundType::Bonus });
-                            // Change color (of parent) when bonus hits on a sensor child
-                            if let Some(mut material) = materials.get_mut(material_handle) {
-                                material.base_color = sensor_child.next_color;
-                            }
-                        }
-                        return;
-                    }
-                    match bouncy_ball.status {
-                        BouncyBallStatus::Live => {
-                            for (toy_entity, mut toy_component, mut rigid_body,
-                                _point_value, _material_handle) in toy_query.iter_mut() {
-                                if toy_entity == toy && !toy_component.dynamic {
- //                                   println!("Make toy dynamic");
-                                    *rigid_body = RigidBody::Dynamic;
-                                    toy_component.dynamic = true;
-//                                    println!("Bump");
-                                    commands.write_message(ImpulseMessage{entity: toy_entity, force:Vec3::new(2.0, 2.0, 0.1)});
+                // Separate handling for live ball hitting a sensor and live ball hitting a fixed rigid body toy
+                if flags.contains(CollisionEventFlags::SENSOR) {
+                    // Focus on the (only) live ball which is the only entity that can collide with another entity (including dead balls)
+                    for (ball_entity, bouncy_ball) in ball_query.iter() {
+                        if !bouncy_ball.live {continue} // live balls only
+                        // Sort out which of the pair is the sensor (the other one is the ball)
+                        let sensor = if ball_entity == entity2 { entity1 } else if ball_entity == entity1 { entity2 } else { continue };
+                        // The ball collides with the SensorChild, not its parent toy
+                        for (parent, mut child_point_value, sensor_child)
+                                        in sensor_query.iter_mut() {
+//                            println!("parent entity: {:?}, sensor: {:?}", parent.0.entity(), sensor);
+                            if child_point_value.value != 0 {
+                                commands.write_message(PointValueMessage { entity: parent.0.entity(), value: child_point_value.value });
+                                // Now get the toy so we can add the points in
+                                if let Ok(toy_entity) = toy_query.get_mut(parent.0) {
+                                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Bonus earns an extra {} points", child_point_value.value) });
+                                    child_point_value.value = 0;
+                                    commands.write_message(SoundMessage { sound_type: SoundType::Bonus });
+                                    // Change color (of parent and descendents) when bonus hits on a sensor child
+                                    commands.write_message(PropagateAssetColorMessage { entity: toy_entity, color: sensor_child.next_color });
                                 }
                             }
                         }
-                        _ => {}
+                    }
+                } else {
+                    // Focus on the live ball colliding with a fixed rigid body toy
+                    for (ball_entity, bouncy_ball) in ball_query.iter() {
+                        // Live balls only
+                        if !bouncy_ball.live {continue}
+                        // Only want live balls hitting SensorChilds for this type of collision
+                        let toy = if ball_entity == entity2 { entity1 } else if ball_entity == entity1 { entity2 } else { continue };
+                        for (toy_entity, mut toy_component, mut rigid_body) in rigid_query.iter_mut() {
+                            if toy_entity == toy && !toy_component.dynamic {
+                                //                                   println!("Make toy dynamic");
+                                *rigid_body = RigidBody::Dynamic;
+                                toy_component.dynamic = true;
+//                                println!("Bump");
+                                commands.write_message(ImpulseMessage { entity: toy_entity, force: Vec3::new(2.0, 2.0, 0.1) });
+                            }
+                        }
                     }
                 }
             }
@@ -373,12 +348,12 @@ fn score_fallen_entities(
     // mut meshes: ResMut<Assets<Mesh>>,
     // mut materials: ResMut<Assets<StandardMaterial>>,
     ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<Toy>)>,
-    toy_query: Query<(Entity, &Toy, &Transform, &PointValue), (With<Toy>, Without<BouncyBall>)>,
+    toy_query: Query<(Entity, &Transform, &PointValue), (With<Toy>, Without<BouncyBall>)>,
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
     scoreboard.toys = 0;
     // score and cleanup old toys and balls that are out of range
-    for (entity, toy, transform, point_value) in toy_query.iter() {
+    for (entity, transform, point_value) in toy_query.iter() {
 //        scoreboard.remaining += 1;
         if transform.translation.y < -15.0 {
             commands.entity(entity).despawn();
@@ -407,8 +382,8 @@ fn score_fallen_entities(
         scoreboard.stop();
         println!("{} toys found", scoreboard.toys);
         scoreboard.hit(100);
-        commands.write_message( HelpMessage{help_type: HelpType::Score, text: "100 points for clearing this level.".to_string()});
-        let text = format!("Press N to start level {}.", scoreboard.level+1);
+        commands.write_message( HelpMessage{help_type: HelpType::Score, text: "100 points for clearing this level".to_string()});
+        let text = format!("Press N to start level {}", scoreboard.level+1);
         commands.write_message( HelpMessage{help_type: HelpType::Next, text});
         commands.write_message(SoundMessage{sound_type: SoundType::Win});
         return;
@@ -422,17 +397,14 @@ fn score_fallen_entities(
                 scoreboard.hit(point_value.value);
                 if point_value.value != 0 {
                     if point_value.value > 0 {
-                        commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You scored {} points!",point_value.value)});
+                        commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You scored {} points",point_value.value)});
                     } else {
                         commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You lost {} points", -point_value.value)});
                     }
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {
-                        match ball.status {
-                            BouncyBallStatus::Live => {
-                                commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Game Over. Press G to start new game.".to_string()});
-                            }
-                            _ => {}
+                        if ball.live {
+                            commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Game Over. Press G to start new game".to_string()});
                         }
                     } else {
                         if point_value.value < 0 {
@@ -454,32 +426,14 @@ fn score_fallen_entities(
             }
         }
     }
-    // Don't make a sound for zero point value
 }
 
-// Drop a Mouse which has a lot of facets
-fn drop_a_mouse(
-    commands: &mut Commands,
-    asset_server: Res<AssetServer>,
-) {
-    commands.spawn((
-        RigidBody::Dynamic,
-        Friction::new(0.0),
-        Restitution::new(0.1),
-        Toy {dynamic: false},
-        PointValue { value: 10 },
-        WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Mouse.glb#Collection"))),
-        AsyncSceneCollider::default(),
-        Transform::from_xyz(-4.0, 5.0, 5.5).with_scale(Vec3::splat(2.0)),
-    ));
-}
 fn handle_help_message (
     mut messages: MessageReader<HelpMessage>,
     mut help_query: Query<&mut TextMesh, (With<HelpWall>, Without<ScoringWall>)>,
     mut score_query: Query<&mut TextMesh, (With<ScoringWall>, Without<HelpWall>)>,
     mut countdown: ResMut<ScoringHelpTimer>,
     time: Res<Time>,
-    //    mut commands: Commands,
 ) {
     for message in messages.read() {
         match message.help_type {
@@ -499,10 +453,19 @@ fn handle_help_message (
         }
     }
 }
+// Add points to a toy
+fn handle_point_value_message (
+    mut messages: MessageReader<PointValueMessage>,
+    mut query: Query<(&mut PointValue), With<Toy>>,
+) {
+    for message in messages.read() {
+        if let Ok(mut point_value) = query.get_mut(message.entity) {
+            point_value.value += message.value;
+        }
+    }
+}
 fn handle_impulse_message (
     mut messages: MessageReader<ImpulseMessage>,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
     mut query: Query<(Entity, &mut ExternalImpulse), With<Toy>>,
 ) {
     for message in messages.read() {
@@ -558,7 +521,36 @@ fn handle_activate_game(
         scoreboard.start();
     }
 }
-
+fn handle_asset_color_propagation(
+    mut messages: MessageReader<PropagateAssetColorMessage>,
+    material_query: Query<&MeshMaterial3d<StandardMaterial>>,
+    children_query: Query<&Children>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands
+) {
+    for message in messages.read() {
+//        println!("Color message: {:?}", message);
+        // Update material at this level
+        if let Ok(material_handle) = material_query.get(message.entity) {
+//            println!("Get material for: {:?}", message);
+            if let Some(material) = materials.get(material_handle) {
+                // 4. Unique copy so we don't accidentally color every object red
+                let mut unique_material = material.clone();
+                unique_material.base_color = message.color;
+                // 5. Overwrite the child's component with the unique material
+                commands.entity(message.entity).insert(MeshMaterial3d(materials.add(unique_material)));
+            }
+        }
+        // Then recurse to the children, if any
+        if let Ok (children) = children_query.get(message.entity) {
+            for child in children.iter() {
+//                println!("Child Entity: {}", child);
+                // And for good measure, continue down to other descendents
+                commands.write_message(PropagateAssetColorMessage{ entity: child, color: message.color});
+            }
+        }
+    }
+}
 fn handle_next_level(
     mut messages: MessageReader<NextLevel>,
     asset_server: Res<AssetServer>,
@@ -589,7 +581,6 @@ fn handle_next_level(
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press Enter to drop a ball".to_string()});
 //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage{});
-        let mut rng = rand::rng();
         if scoreboard.level > 1 {
             // Barrier Left
             commands.spawn((
@@ -642,94 +633,48 @@ fn handle_next_level(
                 Transform::from_xyz(-14.0, 7.0, -5.0),
             ));
         }
-        // // Local cones
-        // for _n in 0..2 {
-        //     commands.spawn((
-        //         Toy { dynamic: true },
-        //         RigidBody::Dynamic,
-        //         Friction::new(0.9),
-        //         Restitution::new(0.1),
-        //         Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
-        //         MeshMaterial3d(materials.add(CONE_COLOR)),
-        //         ExternalImpulse::default(),
-        //         PointValue { value: 15 },
-        //         // Lower the Damping for a more advanced game
-        //         // Damping {
-        //         //     linear_damping: 0.2,
-        //         //     angular_damping: 0.2,
-        //         // },
-        //         Collider::cone(1.0, 0.75),
-        //         Transform::from_xyz(rng.random_range(-12.0..12.0),
-        //                             10.0 + rng.random_range(0.0..10.0),
-        //                             rng.random_range(-9.0..9.0)),
-        //         ExternalForce::default(),
-        //     ));
-        // }
+        // Local cones
+        for _n in 0..2 {
+            commands.spawn((
+                Toy { dynamic: true },
+                RigidBody::Dynamic,
+                Friction::new(0.1),
+                Restitution::new(0.1),
+                Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
+                MeshMaterial3d(materials.add(CONE_COLOR)),
+                ExternalImpulse::default(),
+                PointValue { value: 15 },
+                // Lower the Damping for a more advanced game
+                // Damping {
+                //     linear_damping: 0.2,
+                //     angular_damping: 0.2,
+                // },
+                Collider::cone(1.0, 0.75),
+                Transform::from_translation(random_location()),
+                ExternalForce::default(),
+            ));
+        }
         // // Local disks
-        // for _n in 0..4 {
-        //     commands.spawn((
-        //         RigidBody::Dynamic,
-        //         Toy { dynamic: true },
-        //         Friction::new(0.2),
-        //         Restitution::new(0.1),
-        //         Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
-        //         MeshMaterial3d(materials.add(DISK_COLOR)),
-        //         ExternalImpulse::default(),
-        //         PointValue { value: 15 },
-        //         // Lower the Damping for a more advanced game
-        //         // Damping {
-        //         //     linear_damping: 0.2,
-        //         //     angular_damping: 0.2,
-        //         // },
-        //         Collider::cylinder(0.3, 0.75),
-        //         Transform::from_xyz(rng.random_range(-12.0..12.0),
-        //                             10.0 + rng.random_range(0.0..10.0),
-        //                             rng.random_range(-9.0..9.0)),
-        //         ExternalForce::default(),
-        //     ));
-        // }
-        // commands.spawn((
-        //     RigidBody::Dynamic,
-        //     Toy { dynamic: true },
-        //     Friction::new(0.2),
-        //     Restitution::new(0.1),
-        //     Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
-        //     MeshMaterial3d(materials.add(DISK_COLOR)),
-        //     ExternalImpulse::default(),
-        //     PointValue { value: 15 },
-        //     // Lower the Damping for a more advanced game
-        //     // Damping {
-        //     //     linear_damping: 0.2,
-        //     //     angular_damping: 0.2,
-        //     // },
-        //     Collider::cylinder(0.3, 0.75),
-        //     Transform::from_xyz(rng.random_range(-12.0..12.0),
-        //                         10.0 + rng.random_range(0.0..10.0),
-        //                         rng.random_range(-9.0..9.0)),
-        //     ExternalForce::default(),
-        // ));
-        // // Dip
-        // commands.spawn((
-        //     RigidBody::Dynamic,
-        //     Toy { dynamic: true },
-        //     ExternalImpulse::default(),
-        //     Friction::new(0.0),
-        //     Restitution::new(0.1),
-        //     PointValue { value: 10 },
-        //     WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
-        //     AsyncSceneCollider::default(),
-        //     Transform::from_xyz(-9.0, 8.0, 3.0).with_scale(Vec3::splat(0.4)),
-        // )).with_children(|parent| {
-        //     parent.spawn((
-        //         SensorChild {},
-        //         Collider::ball(0.1),
-        //         Sensor,
-        //         PointValue { value: 25 },
-        //         ActiveEvents::COLLISION_EVENTS,
-        //         Transform::from_xyz(0.0, 0.2, 0.0),
-        //     ));
-        // });
-        //
+        for _n in 0..4 {
+            commands.spawn((
+                RigidBody::Dynamic,
+                Toy { dynamic: true },
+                Friction::new(0.2),
+                Restitution::new(0.1),
+                Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
+                MeshMaterial3d(materials.add(DISK_COLOR)),
+                ExternalImpulse::default(),
+                PointValue { value: 15 },
+                // Lower the Damping for a more advanced game
+                // Damping {
+                //     linear_damping: 0.2,
+                //     angular_damping: 0.2,
+                // },
+                Collider::cylinder(0.3, 0.75),
+                Transform::from_translation(random_location()),
+                ExternalForce::default(),
+            ));
+        }
         // Boxes
         for _n in 0..4 {
             commands.spawn((
@@ -821,15 +766,15 @@ fn handle_next_level(
         //         Transform::from_xyz(rng.random_range(-12.0..12.0), 4.0, rng.random_range(-9.0..9.0)).with_scale(Vec3::splat(0.75)),
         //     ));
         // }
-        // // Devil Disk
-        if scoreboard.level > 5 {
+        // // Black Disk
+        if scoreboard.level > 4 {
             commands.spawn((
                 RigidBody::Dynamic,
                 Toy { dynamic: true },
                 Friction::new(0.2),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
-                MeshMaterial3d(materials.add(DEVIL_COLOR)),
+                MeshMaterial3d(materials.add(BLACK_DISK_COLOR)),
                 ExternalImpulse::default(),
                 PointValue { value: -50 },
                 // Lower the Damping for a more advanced game
@@ -842,15 +787,47 @@ fn handle_next_level(
                 ExternalForce::default(),
                 )).with_children(|parent| {
                     parent.spawn((
-                        SensorChild {next_color: ANGEL_COLOR},
+                        SensorChild {next_color: WHITE_DISK_COLOR },
                         Collider::ball(0.2),
                         Sensor,
-                        PointValue { value: 100 },
+                        PointValue { value: 20 },
                         ActiveEvents::COLLISION_EVENTS,
                         Transform::from_xyz(0.0, 0.6, 0.0),
                     ));
+                    parent.spawn((
+                        SensorChild {next_color: WHITE_DISK_COLOR },
+                        Collider::ball(0.2),
+                        Sensor,
+                        PointValue { value: 20 },
+                        ActiveEvents::COLLISION_EVENTS,
+                        Transform::from_xyz(0.0, -0.6, 0.0),
+                    ));
                 });
 //            ));
+        }
+        // Dip
+        for _n in 0..1 {
+            commands.spawn((
+                RigidBody::Dynamic,
+                Toy { dynamic: true },
+                ExternalImpulse::default(),
+                Friction::new(0.0),
+                Restitution::new(0.1),
+                PointValue { value: 10 },
+                MeshMaterial3d(materials.add(BLACK_DISK_COLOR)),
+                WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
+                AsyncSceneCollider::default(),
+                Transform::from_translation(random_location()).with_scale(Vec3::splat(0.5)),
+            )).with_children(|parent| {
+                parent.spawn((
+                    SensorChild {next_color: WHITE_DISK_COLOR},
+                    Collider::ball(0.1),
+                    Sensor,
+                    PointValue { value: 25 },
+                    ActiveEvents::COLLISION_EVENTS,
+                    Transform::from_xyz(0.0, 0.2, 0.0),
+                ));
+            });
         }
         // Bumpy sphere
         if scoreboard.level > 3 {
@@ -880,14 +857,9 @@ fn start_new_game(
 }
 
 fn start_next_level(
-    mut scoreboard: ResMut<ScoreBoard>,
-//    mut old_balls: Query<Entity, With<BouncyBall>>,
     mut commands: Commands,
 ) {
-    // for entry in old_balls.iter() {
-    //     println!("Entity: {:?}", entry);
-    // }
-    println!("Sending next level from start_next_Level");
+//    println!("Sending next level from start_next_Level");
     commands.write_message(NextLevel {});
 }
 fn drop_a_ball(
@@ -910,26 +882,23 @@ fn drop_a_ball(
     if scoreboard.level == 1 {
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Use arrow keys to move the ball around\nand push toys off the edge".to_string()});
     } else if scoreboard.level == 2 {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Use space bar to bounce the ball.".to_string()});
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Use space bar to bounce the ball".to_string()});
     } else if scoreboard.level == 3 {
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Hit the toys on the scoreboard, too".to_string()});
+    } else if scoreboard.level == 5 {
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Hit the top of the black toy to turn it white".to_string()});
     } else {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Go for it.".to_string()});
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Go for it".to_string()});
     }
     scoreboard.use_a_ball();
     // Make any live balls dead, usually only one
     for (mut bouncyball, mut point_value, material_handle) in query.iter_mut() {
-        match bouncyball.status {
-            BouncyBallStatus::Live => {
-                bouncyball.status = BouncyBallStatus::Dead;
-                point_value.value = 2;
-                if let Some(mut material) = materials.get_mut(material_handle) {
-                    material.base_color = DEAD_BALL;
-                }
-//                println!("Live - > Dead");
-
+        if bouncyball.live {
+            bouncyball.live = false;
+            point_value.value = 2;
+            if let Some(mut material) = materials.get_mut(material_handle) {
+                material.base_color = DEAD_BALL;
             }
-            _ => {}
         }
     }
     let mut rng = rand::rng();
@@ -938,7 +907,7 @@ fn drop_a_ball(
     let z_pos: f32 = rng.random_range(-9.0..9.0);
     // Spawn a Dynamic Bouncing Ball
     commands.spawn((
-        BouncyBall{status: BouncyBallStatus::Live},
+        BouncyBall{live: true},
         RigidBody::Dynamic,
         PointValue{value: -10},
         ActiveEvents::COLLISION_EVENTS,
@@ -964,53 +933,50 @@ fn drop_a_ball(
 }
 
 fn impulse(
-    mut balls: Query<(&mut ExternalImpulse, &BouncyBall), (With<BouncyBall>)>,
+    mut balls: Query<(&mut ExternalImpulse, &BouncyBall), With<BouncyBall>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
     // Just interested in the live ball
     for (mut impulse, ball) in balls.iter_mut() {
         commands.write_message( HelpMessage{help_type: HelpType::Score, text: "-".to_string()});
-        match ball.status  {
-            BouncyBallStatus::Live => {
-                // See which key was pressed
-                for key in keyboard_input.get_just_pressed() {
-                    match key {
-                        KeyCode::Space => {
-                            impulse.impulse = Vec3::new(0.0, BUMP*2.0, 0.0);
-                        }
-                        KeyCode::Numpad5 => {
-                            impulse.impulse = Vec3::new(0.0, BUMP*2.0, 0.0);
-                        }
-                        KeyCode::ArrowLeft => {
-                            impulse.impulse = Vec3::new(-BUMP, 0.0, 0.0);
-                        }
-                        KeyCode::Numpad4 => {
-                            impulse.impulse = Vec3::new(-BUMP, 0.0, 0.0);
-                        }
-                        KeyCode::ArrowRight => {
-                            impulse.impulse = Vec3::new(BUMP, 0.0, 0.0);
-                        }
-                        KeyCode::Numpad6 => {
-                            impulse.impulse = Vec3::new(BUMP, 0.0, 0.0);
-                        }
-                        KeyCode::ArrowUp => {
-                            impulse.impulse = Vec3::new(0.0, 0.0, -BUMP);
-                        }
-                        KeyCode::Numpad8 => {
-                            impulse.impulse = Vec3::new(0.0, 0.0, -BUMP);
-                        }
-                        KeyCode::ArrowDown => {
-                            impulse.impulse = Vec3::new(0.0, 0.0, BUMP);
-                        }
-                        KeyCode::Numpad2 => {
-                            impulse.impulse = Vec3::new(0.0, 0.0, BUMP);
-                        }
-                        _ => {}
+        if ball.live  {
+            // See which key was pressed
+            for key in keyboard_input.get_just_pressed() {
+                match key {
+                    KeyCode::Space => {
+                        impulse.impulse = Vec3::new(0.0, BUMP*2.0, 0.0);
                     }
+                    KeyCode::Numpad5 => {
+                        impulse.impulse = Vec3::new(0.0, BUMP*2.0, 0.0);
+                    }
+                    KeyCode::ArrowLeft => {
+                        impulse.impulse = Vec3::new(-BUMP, 0.0, 0.0);
+                    }
+                    KeyCode::Numpad4 => {
+                        impulse.impulse = Vec3::new(-BUMP, 0.0, 0.0);
+                    }
+                    KeyCode::ArrowRight => {
+                        impulse.impulse = Vec3::new(BUMP, 0.0, 0.0);
+                    }
+                    KeyCode::Numpad6 => {
+                        impulse.impulse = Vec3::new(BUMP, 0.0, 0.0);
+                    }
+                    KeyCode::ArrowUp => {
+                        impulse.impulse = Vec3::new(0.0, 0.0, -BUMP);
+                    }
+                    KeyCode::Numpad8 => {
+                        impulse.impulse = Vec3::new(0.0, 0.0, -BUMP);
+                    }
+                    KeyCode::ArrowDown => {
+                        impulse.impulse = Vec3::new(0.0, 0.0, BUMP);
+                    }
+                    KeyCode::Numpad2 => {
+                        impulse.impulse = Vec3::new(0.0, 0.0, BUMP);
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 }
@@ -1031,7 +997,6 @@ fn setup_physics(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    mut countdown_timer: ResMut<ScoringHelpTimer>,
 )
 {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
@@ -1158,9 +1123,9 @@ fn setup_physics(
 
     // Spawn the Camera
     commands.spawn((
+        CameraController{},
         Camera3d::default(),
         Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
     ));
     // commands.spawn ((
     //         GlobalAmbientLight {
@@ -1197,13 +1162,6 @@ fn setup_physics(
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));
     // Title
-    let mat = materials.add(StandardMaterial {
-//        base_color_texture: Some(TextAtlas::DEFAULT_IMAGE.clone()),
-        alpha_mode: AlphaMode::Mask(0.5),
-        unlit: true,
-        cull_mode: None,
-        ..Default::default()
-    });
     commands.spawn((
         TextMesh {
             text: "Holy Balls".to_string(),
