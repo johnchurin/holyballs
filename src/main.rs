@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
 use std::num::NonZero;
+use std::time::Duration;
 use bevy::input::mouse::MouseMotion;
 use bevy::light::NotShadowCaster;
 use bevy::window::{PrimaryWindow, WindowMode};
@@ -50,6 +51,7 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(ScoreBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
+        .insert_resource(ScoringHelpTimer::new(8.0))
         .add_systems(Update, (
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             toggle_wind.run_if(input_just_pressed(KeyCode::KeyW)),
@@ -71,20 +73,40 @@ fn main() {
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
         .add_systems(Update, (
+            clear_scoring_text,
+        ))
+        .add_systems(Update, (
+            handle_activate_game,
             handle_impulse_message,
             handle_next_level,
             handle_sensor_events,
             handle_help_message,
             handle_sound,
             score_fallen_entities,
-        )
-    )
+        ))
+    .add_message::<ActivateGameMessage>()
     .add_message::<ImpulseMessage>()
     .add_message::<HelpMessage>()
     .add_message::<NextLevel>()
     .add_message::<SoundMessage>()
     .run();
 }
+#[derive(Resource)]
+struct ScoringHelpTimer {
+    start: f32,
+    duration: f32,
+    active: bool,
+}
+impl ScoringHelpTimer {
+    fn new(duration: f32) -> Self {
+        Self { active: false, duration, start: 0.0 }
+    }
+    fn start(&mut self, start: f32) {
+        self.active = true;
+        self.start = start;
+    }
+}
+
 enum SoundType {
     Win,
     Lose,
@@ -94,6 +116,10 @@ enum SoundType {
 struct ImpulseMessage {
     entity: Entity,
     force: Vec3,
+}
+
+#[derive(Message)]
+struct ActivateGameMessage {
 }
 
 #[derive(Message)]
@@ -172,11 +198,11 @@ impl ScoreBoard {
         self.balls -= 1;
     }
     fn stop(&mut self) {
-        println!("stopping");
+        println!("stopping game");
         self.running = false;
     }
     fn start(&mut self) {
-        println!("starting");
+        println!("starting game");
         self.running = true;
     }
     fn next_level(&mut self) {
@@ -185,6 +211,7 @@ impl ScoreBoard {
         self.balls = 3;
     }
     fn reset(&mut self) {
+        println!("reset scoreboard");
         self.running = false;
         self.score = 0;
         self.level = 0;
@@ -225,6 +252,21 @@ fn toggle_wind(
             force.force.x = 0.0;
         } else {
             force.force.x = 2.0;
+        }
+    }
+}
+fn clear_scoring_text(
+    time: Res<Time>,
+    mut timer: ResMut<ScoringHelpTimer>,
+    mut commands: Commands,
+) {
+    if timer.active {
+        if time.elapsed_secs() > timer.start+timer.duration {
+            timer.active = false;
+            commands.write_message(HelpMessage{help_type: HelpType::Score, text: "--".to_string()});
+            info!("Countdown finished!");
+//         } else {
+// //            info!("Start: {:.5} current: {:.5}", timer.start, time.elapsed_secs());
         }
     }
 }
@@ -310,7 +352,7 @@ fn handle_sensor_events(
  //                                   println!("Make toy dynamic");
                                     *rigid_body = RigidBody::Dynamic;
                                     toy_component.dynamic = true;
-                                    println!("Bump");
+//                                    println!("Bump");
                                     commands.write_message(ImpulseMessage{entity: toy_entity, force:Vec3::new(2.0, 2.0, 0.1)});
                                 }
                             }
@@ -328,8 +370,8 @@ fn handle_sensor_events(
 
 fn score_fallen_entities(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<Toy>)>,
     toy_query: Query<(Entity, &Toy, &Transform, &PointValue), (With<Toy>, Without<BouncyBall>)>,
     mut scoreboard: ResMut<ScoreBoard>,
@@ -360,52 +402,59 @@ fn score_fallen_entities(
             scoreboard.toys += 1;
         }
     }
+    if scoreboard.running && scoreboard.toys == 0 {
+        // Round is no longer running
+        scoreboard.stop();
+        println!("{} toys found", scoreboard.toys);
+        scoreboard.hit(100);
+        commands.write_message( HelpMessage{help_type: HelpType::Score, text: "100 points for clearing this level.".to_string()});
+        let text = format!("Press N to start level {}.", scoreboard.level+1);
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text});
+        commands.write_message(SoundMessage{sound_type: SoundType::Win});
+        return;
+    }
+    // Look for fallen balls
     for (entity, ball, transform, point_value) in ball_query.iter() {
         if transform.translation.y < -15.0 {
             commands.entity(entity).despawn();
             println!("Ball despawned {} points", point_value.value);
-            scoreboard.hit(point_value.value);
-            if point_value.value != 0 {
-                if point_value.value > 0 {
-                    commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You scored {} points!",point_value.value)});
-                } else {
-                    commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You lost {} points", -point_value.value)});
-                }
-                // If our last, live ball, then game over.
-                if scoreboard.balls == 0 {
-                    match ball.status {
-                        BouncyBallStatus::Live => {
-                            commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Game Over. Press G to start new game.".to_string()});
-                        }
-                        _ => {}
+            if scoreboard.running {
+                scoreboard.hit(point_value.value);
+                if point_value.value != 0 {
+                    if point_value.value > 0 {
+                        commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You scored {} points!",point_value.value)});
+                    } else {
+                        commands.write_message( HelpMessage{help_type: HelpType::Score, text: format!("You lost {} points", -point_value.value)});
                     }
-                } else {
-                    commands.write_message( HelpMessage{help_type: HelpType::Score,
-                        text: format!("You scored {} points. Press Enter for another ball", point_value.value)});
+                    // If this is our last, live ball, then game over.
+                    if scoreboard.balls == 0 {
+                        match ball.status {
+                            BouncyBallStatus::Live => {
+                                commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Game Over. Press G to start new game.".to_string()});
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        if point_value.value < 0 {
+                            commands.write_message( HelpMessage{help_type: HelpType::Score,
+                                text: format!("That cost you {} points. Press Enter for another ball", point_value.value)});
+                        } else {
+                            commands.write_message( HelpMessage{help_type: HelpType::Score,
+                                text: format!("You scored {} points. Press Enter for another ball", point_value.value)});
+                        }
+                    }
+
+                    commands.write_message(
+                        SoundMessage {
+                            sound_type: if point_value.value < 0
+                            { SoundType::Lose } else { SoundType::Win }
+                        });
                 }
 
-                commands.write_message(
-                    SoundMessage {
-                        sound_type: if point_value.value < 0
-                        { SoundType::Lose } else { SoundType::Win }
-                    });
             }
         }
     }
-
     // Don't make a sound for zero point value
-    if scoreboard.running && scoreboard.toys == 0 {
-        // Round is no longer running
-        scoreboard.stop();
-        scoreboard.hit(100);
-        commands.write_message( HelpMessage{help_type: HelpType::Score, text: "100 points for clearing this level.".to_string()});
-        let mut text = format!("Press N to start level {}.", scoreboard.level+1);
-        if scoreboard.balls > 1 {
-            text += "\nFor extra points drop another ball and push the dead ball(s) off the edge, too.";
-        }
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text});
-        commands.write_message(SoundMessage{sound_type: SoundType::Win});
-    }
 }
 
 // Drop a Mouse which has a lot of facets
@@ -428,13 +477,18 @@ fn handle_help_message (
     mut messages: MessageReader<HelpMessage>,
     mut help_query: Query<&mut TextMesh, (With<HelpWall>, Without<ScoringWall>)>,
     mut score_query: Query<&mut TextMesh, (With<ScoringWall>, Without<HelpWall>)>,
-    mut commands: Commands,
+    mut countdown: ResMut<ScoringHelpTimer>,
+    time: Res<Time>,
+    //    mut commands: Commands,
 ) {
     for message in messages.read() {
         match message.help_type {
             HelpType::Score => {
                 for mut text_mesh in score_query.iter_mut() {
                     text_mesh.text = message.text.clone();
+                    if message.text != "--" {
+                        countdown.start(time.elapsed_secs());
+                    }
                 }
             }
             HelpType::Next => {
@@ -494,6 +548,17 @@ fn random_location() -> Vec3 {
               10.0 + rng.random_range(0.0..10.0),
               rng.random_range(-9.0..9.0))
 }
+
+fn handle_activate_game(
+    mut messages: MessageReader<ActivateGameMessage>,
+//    mut commands: Commands,
+    mut scoreboard: ResMut<ScoreBoard>,
+) {
+    for _event in messages.read() {
+        scoreboard.start();
+    }
+}
+
 fn handle_next_level(
     mut messages: MessageReader<NextLevel>,
     asset_server: Res<AssetServer>,
@@ -523,7 +588,7 @@ fn handle_next_level(
         }
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press Enter to drop a ball".to_string()});
 //        println!("Level: {}", scoreboard.level);
-        scoreboard.start();
+        commands.write_message(ActivateGameMessage{});
         let mut rng = rand::rng();
         if scoreboard.level > 1 {
             // Barrier Left
@@ -801,6 +866,7 @@ fn handle_next_level(
                 Transform::from_translation(random_location()),
             ));
         }
+        println!("Done creating toys");
     }
 }
 fn start_new_game(
@@ -812,6 +878,7 @@ fn start_new_game(
     commands.write_message(NextLevel {});
     commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the N key to start the first level".to_string()});
 }
+
 fn start_next_level(
     mut scoreboard: ResMut<ScoreBoard>,
 //    mut old_balls: Query<Entity, With<BouncyBall>>,
@@ -899,9 +966,11 @@ fn drop_a_ball(
 fn impulse(
     mut balls: Query<(&mut ExternalImpulse, &BouncyBall), (With<BouncyBall>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
 ) {
     // Just interested in the live ball
     for (mut impulse, ball) in balls.iter_mut() {
+        commands.write_message( HelpMessage{help_type: HelpType::Score, text: "-".to_string()});
         match ball.status  {
             BouncyBallStatus::Live => {
                 // See which key was pressed
@@ -951,19 +1020,18 @@ fn update_scoreboard(
     scoreboard: Res<ScoreBoard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {}\nScore this level: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
+        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
                           scoreboard.level,
                           scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
         };
 }
-
 fn setup_physics(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-
+    mut countdown_timer: ResMut<ScoringHelpTimer>,
 )
 {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
