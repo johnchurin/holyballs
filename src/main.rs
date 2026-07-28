@@ -23,6 +23,7 @@ const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const TARGET_COLOR: Color = Color::srgb(255.0/255.0, 105.0/255.0, 180.0/255.0);
 const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
+const FENCE_COLOR: Color = Color::srgba(0.0, 0.9, 0.0, 0.4);
 const BLACK_DISK_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const WHITE_DISK_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const SCOREBOARD_COLOR: Color = Color::srgb(0.5, 0.5, 0.0);
@@ -43,7 +44,7 @@ fn main() {
         // })
 //        .add_plugins(RichText3dPlugin) // Must be registered!
         .add_systems(Startup, setup_configuration)
-        .add_systems(Startup, setup_physics)
+        .add_systems(Startup, setup_game_board)
         .add_systems(Startup, setup_window)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(ScoreBoard::new())
@@ -68,7 +69,9 @@ fn main() {
             start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
             start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
             restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
+//            show_fences.run_if(input_just_pressed(KeyCode::KeyF)),
             update_scoreboard.run_if(resource_changed::<ScoreBoard>),
+
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
         .add_systems(Update, (
@@ -103,6 +106,7 @@ struct ScoringHelpTimer {
 }
 #[derive(Default, Clone, Debug)]
 struct Toy {
+    balls: i32,
     barriers: i32,
     blocks: i32,
     disks: i32,
@@ -115,6 +119,7 @@ struct Toy {
     ghosts: i32,
     lifesavers: i32,
     cylinders: i32,
+    fences: i32,
     help: String,
 }
 #[derive(Resource)]
@@ -156,6 +161,7 @@ enum SoundType {
     Win,
     Lose,
     Bonus,
+    NewLevel,
 }
 #[derive(Message)]
 struct ImpulseMessage {
@@ -220,6 +226,17 @@ struct PointValue {
     value: i32,
 }
 
+enum FenceType {
+    Back,
+    Left,
+    Right,
+    Front
+}
+#[derive(Component)]
+struct Fence {
+    fence_type: FenceType,
+}
+
 #[derive(Component)]
 struct ToyType {
     dynamic: bool,
@@ -231,8 +248,8 @@ struct ScoreBoard {
     score: i32,
     level: i32,
     total: i32,
-    toys: usize,
-    balls: usize,
+    toys: i32,
+    balls: i32,
 }
 
 impl ScoreBoard {
@@ -246,6 +263,10 @@ impl ScoreBoard {
     fn use_a_ball(&mut self) {
         self.balls -= 1;
     }
+    fn set_balls_count(&mut self, count: i32) {
+        self.balls = count;
+    }
+
     fn stop(&mut self) {
         println!("stopping game");
         self.running = false;
@@ -257,12 +278,12 @@ impl ScoreBoard {
     fn next_level(&mut self) {
         self.score = 0;
         self.level += 1;
-        self.balls = 3;
+//        self.balls = 3;
     }
     fn same_level(&mut self) {
         self.score = 0;
 //        self.level += 1;
-        self.balls = 3;
+//        self.balls = 3;
     }
     fn reset(&mut self) {
         println!("reset scoreboard");
@@ -286,32 +307,45 @@ fn setup_window(
         window.title = "Holy Balls".into();
     }
 }
-
+// fn show_fences(
+//     mut query: Query<&mut Visibility, With<Fence>>,
+// ) {
+//     for mut visibility in query.iter_mut() {
+//         visibility.toggle_visible_hidden()
+//     }
+// }
 fn setup_configuration(
     mut configuration: ResMut<Configuration>,
 ) {
     configuration.add(Toy {
+        balls: 5,
         blocks: 1,
-        help: "Use arrow keys to move the ball around\nand push the toy off the edge".to_string(),
+        fences: 4,
+        help: "Use arrow keys to move the ball around\nand push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
         ..Toy::default()
     });
 
     configuration.add(Toy {
+        balls: 5,
+        fences: 3,
         blocks: 2,
         disks: 2,
-        help: "Don't let the red ball fall off the edge while pushing toys".to_string(),
+        help: "Don't let the red ball fall off the front edge while pushing toys".to_string(),
         ..Toy::default()
     });
 
     configuration.add(Toy {
+        balls: 3,
+        fences: 1,
         blocks: 1,
         disks: 1,
         spikeys: 1,
-        help: "The spikey ball may need a pretty good push".to_string(),
+        help: "Fewer balls available starting at this level".to_string(),
         ..Toy::default()
     });
 
     configuration.add(Toy {
+        balls: 3,
         blocks: 2,
         disks: 2,
         help: "Use space bar to bounce the ball".to_string(),
@@ -319,6 +353,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 1,
         blocks: 2,
         help: "Use space bar to bounce the ball over the barrier".to_string(),
@@ -326,6 +361,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         blacks: 3,
         help: "Hit the top of the black disk to turn it white and\nget bonus points when you push it off the edge".to_string(),
@@ -333,6 +369,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         dips: 2,
         help: "Put the ball in the dip to turn the piece white and\n get bonus points when you push it off the edge".to_string(),
@@ -340,6 +377,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         targets: 1,
         help: "Hit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
@@ -354,16 +392,18 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         blocks: 15,
         ghosts: 4,
         disks: 5,
         cylinders: 3,
-        help: "Are those almost-invisible block real?".to_string(),
+        help: "Don't forget the transparent blocks".to_string(),
         ..Toy::default()
     });
 
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         blocks: 6,
         ghosts: 2,
@@ -375,6 +415,7 @@ fn setup_configuration(
         ..Toy::default()
     });
     configuration.add(Toy {
+        balls: 3,
         barriers: 2,
         blocks: 6,
         ghosts: 4,
@@ -462,7 +503,8 @@ fn handle_sensor_events(
                                     println!("parent.0: {:?}, toy: {:?}", parent.0.entity(), toy_entity);
                                     if child_point_value.value != 0 {
                                         commands.write_message(PointValueMessage { entity: toy_entity, value: child_point_value.value });
-                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Bonus earns an extra {} points", child_point_value.value) });
+//                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Bonus earns extra {} points", child_point_value.value) });
+                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Bonus earns extra ".to_string() });
                                         child_point_value.value = 0;
                                         commands.write_message(SoundMessage { sound_type: SoundType::Bonus });
                                         // Change color (of parent and descendents) when bonus hits on a sensor child
@@ -657,6 +699,12 @@ fn handle_sound(
                     PlaybackSettings::ONCE,
                 ));
             }
+            SoundType::NewLevel => {
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load("audio/tada.ogg")),
+                    PlaybackSettings::ONCE,
+                ));
+            }
         }
     }
 }
@@ -740,6 +788,69 @@ fn create_barriers(
         ));
     }
 }
+fn create_fences(
+    n: i32,
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    if n == 1 || n == 3 || n == 4 {
+        commands.spawn((
+            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            NotShadowCaster,
+            Fence { fence_type: FenceType::Back },
+            RigidBody::Fixed,
+            Friction::new(0.5),
+            Restitution::new(0.1),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0 - 0.25, 1.0, 0.25 / 2.0)))),
+            MeshMaterial3d(materials.add(FENCE_COLOR)),
+            Collider::cuboid(12.5 - 0.25, 0.5, 0.125 / 2.0),
+            Transform::from_xyz(0.0, 0.5, -10.0),
+        ));
+    }
+    if  n == 2 || n == 3 || n == 4 {
+        commands.spawn((
+            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            NotShadowCaster,
+            Fence { fence_type: FenceType::Right },
+            RigidBody::Fixed,
+            Friction::new(0.5),
+            Restitution::new(0.1),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25 / 2.0, 1.0, 20.0 - 0.25)))),
+            MeshMaterial3d(materials.add(FENCE_COLOR)),
+            Collider::cuboid(0.125 / 2.0, 0.5, 10.0 - 0.125),
+            Transform::from_xyz(12.5 - 0.125, 0.5, 0.0),
+        ));
+    }
+    if n == 4 {
+        commands.spawn((
+            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            NotShadowCaster,
+            Fence { fence_type: FenceType::Front },
+            RigidBody::Fixed,
+            Friction::new(0.5),
+            Restitution::new(0.1),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0 - 0.25, 1.0, 0.25 / 2.0)))),
+            MeshMaterial3d(materials.add(FENCE_COLOR)),
+            Collider::cuboid(12.5 - 0.25, 0.5, 0.125 / 2.0),
+            Transform::from_xyz(0.0, 0.5, 10.0),
+        ));
+    }
+    if  n == 2 || n == 3 || n == 4 {
+        commands.spawn((
+            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            NotShadowCaster,
+            Fence { fence_type: FenceType::Left },
+            RigidBody::Fixed,
+            Friction::new(0.5),
+            Restitution::new(0.1),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25 / 2.0, 1.0, 20.0 - 0.25)))),
+            MeshMaterial3d(materials.add(FENCE_COLOR)),
+            Collider::cuboid(0.125 / 2.0, 0.5, 10.0 - 0.25),
+            Transform::from_xyz(-12.5 + 0.125, 0.5, 0.0),
+        ));
+    }
+}
 fn create_blocks(
     n: i32,
     commands: &mut Commands,
@@ -750,6 +861,7 @@ fn create_blocks(
     // Boxes
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -783,6 +895,7 @@ fn create_disks(
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -813,6 +926,7 @@ fn create_cones(
 ){
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: true },
             RigidBody::Dynamic,
             Friction::new(0.1),
@@ -842,6 +956,7 @@ fn create_blacks(
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -888,6 +1003,7 @@ fn create_dips(
 ){
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             ExternalImpulse::default(),
@@ -931,6 +1047,7 @@ fn create_bumpys (
 ){
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.0),
@@ -951,6 +1068,7 @@ fn create_targets(
 ){
     if n > 0 {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 35 },
@@ -965,6 +1083,7 @@ fn create_targets(
     }
     if n > 1 {
     commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
@@ -979,6 +1098,7 @@ fn create_targets(
     }
     if n > 2 {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
@@ -1001,6 +1121,7 @@ fn create_ghosts(
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -1032,6 +1153,7 @@ fn create_lifesavers (
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.0),
@@ -1061,11 +1183,12 @@ fn create_spikeys(
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
-            Friction::new(1.0),
+            Friction::new(0.4),
             Restitution::new(0.1),
-            ColliderMassProperties::Density(0.50),
+            ColliderMassProperties::Mass(0.25),
             ExternalImpulse::default(),
             PointValue { value: 25 },
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/spikey.glb#collection"))),
@@ -1081,6 +1204,7 @@ fn create_cylinders(
 ) {
     for _n in 0..n {
         commands.spawn((
+            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.8),
@@ -1104,6 +1228,7 @@ fn handle_new_level(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    query: Query<Entity, With<Fence>>,
 ) {
     for _event in messages.read() {
         for entity in old_balls.iter_mut() {
@@ -1129,6 +1254,12 @@ fn handle_new_level(
         commands.write_message(ActivateGameMessage {});
         let toys = configuration.get_toys(scoreboard.level);
 //        println!("Level {}, Toys {:?}", scoreboard.level, toys);
+        // Clear previous fences
+        for entity in query.iter() {
+            commands.entity(entity).despawn();
+        }
+        scoreboard.set_balls_count(toys.balls);
+        create_fences(toys.fences, &mut commands, &mut meshes, &mut materials);
         create_blocks(toys.blocks, &mut commands, &mut meshes, &mut materials);
         create_barriers(toys.barriers, &mut commands, &mut meshes, &mut materials);
         create_disks(toys.disks, &mut commands, &mut meshes, &mut materials);
@@ -1142,6 +1273,7 @@ fn handle_new_level(
         create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
         create_cylinders(toys.cylinders, &mut commands, &asset_server);
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
+        commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
 //        println!("Done creating toys");
     }
 }
@@ -1168,7 +1300,7 @@ fn restart_same_level(
     mut scoreboard: ResMut<ScoreBoard>,
     mut commands: Commands,
 ) {
-    scoreboard.same_level();
+//    scoreboard.same_level();
     commands.write_message(PlayLevel {});
 }
 fn drop_a_ball(
@@ -1203,6 +1335,7 @@ fn drop_a_ball(
     let z_pos: f32 = rng.random_range(-9.0..9.0);
     // Spawn a Dynamic Bouncing Ball
     commands.spawn((
+        CollisionGroups::new(Group::GROUP_1, Group::GROUP_1 | Group::GROUP_2 | Group::GROUP_3 | Group::GROUP_4),
         BouncyBall{live: true},
         RigidBody::Dynamic,
         PointValue{value: -10},
@@ -1221,7 +1354,6 @@ fn drop_a_ball(
         ExternalImpulse::default(),
         Transform::from_xyz(x_pos, y_pos, z_pos),
         Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
-        Visibility::default(),
         ExternalForce::default(),
         Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
         MeshMaterial3d(materials.add(LIVE_BALL)),
@@ -1292,15 +1424,14 @@ fn update_scoreboard(
                             scoreboard.toys, scoreboard.balls);
         };
 }
-fn setup_physics(
+fn setup_game_board(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-)
-{
+) {
     let font = asset_server.load("fonts/Archivo.ttf");
-
+    // Scoreboard text
     commands.spawn((
         Score{},
         TextMesh {
@@ -1331,7 +1462,9 @@ fn setup_physics(
             scale: Vec3::splat(0.9),
         },
     ));
+    // Scoreboard
     commands.spawn((
+        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
@@ -1340,7 +1473,6 @@ fn setup_physics(
         Collider::cuboid(0.25, 3.5, 7.0),
         Transform::from_xyz(-14.5, 5.0, 0.0),
     ));
-//    let test = Text3d::parse_raw("{font-family:Arial}{color:red}I got nothing");
 
     // Help wall
     commands.spawn((
@@ -1406,37 +1538,14 @@ fn setup_physics(
         },
     ));
 
-
-    // commands.spawn((
-    //     Text::new("Initializing..."),
-    //     TextColor(TEXT_COLOR),
-    //     TextFont {
-    //         font_size: FontSize::Px(16.0),
-    //         ..Default::default()
-    //     },
-    //     Node {
-    //         position_type: PositionType::Absolute,
-    //         top: px(12),
-    //         left: px(12),
-    //         ..default()
-    //     },
-    // ));
-
     // Spawn the Camera
     commands.spawn((
         CameraController{},
         Camera3d::default(),
         Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-    // commands.spawn ((
-    //         GlobalAmbientLight {
-    //             color: Color::from(LIGHT_COLOR),
-    //             brightness: 10_000_000.0,
-    //             ..default()
-    //         },
-    //     ));
 
-    // 2. Spawn a Light
+    // Spawn a Light
     commands.spawn((
 //        DirectionalLight::default(),
         PointLight {
@@ -1451,9 +1560,9 @@ fn setup_physics(
         Transform::from_xyz(0.0, 20.0, 10.0),
     ));
 
-
-    // Surface plane
+    // Game Surface, the top of the surface is at y=0.0
     commands.spawn((
+        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
@@ -1462,6 +1571,7 @@ fn setup_physics(
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));
+
     // Title
     commands.spawn((
         TextMesh {
@@ -1491,15 +1601,5 @@ fn setup_physics(
             scale: Vec3::splat(4.0),
         },
     ));
-    // Add fence
-    // commands.spawn( (
-    //     Fence {},
-    //     Friction::new(0.0),
-    //     Restitution::new(0.1),
-    //     WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cube_with_hole.glb#Fence"))),
-    //     AsyncSceneCollider::default(),
-    //     Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 0.2, 1.0)),
-    // ));
-//    commands.write_message(NextLevel {});
     commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the G key to start a new game".to_string()});
 }
