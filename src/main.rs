@@ -110,9 +110,11 @@ struct Toy {
     dips: i32,
     bumpys: i32,
     targets: i32,
+    spikeys: i32,
     ghosts: i32,
     lifesavers: i32,
     cylinders: i32,
+    help: String,
 }
 #[derive(Resource)]
 struct Configuration {
@@ -282,13 +284,103 @@ fn setup_window(
 fn setup_configuration(
     mut configuration: ResMut<Configuration>,
 ) {
-    configuration.add(Toy{blocks:1,..Toy::default()});
-    configuration.add(Toy{blocks:2, disks: 2,..Toy::default()});
-    configuration.add(Toy{barriers: 1, blocks:2, disks: 2,..Toy::default()});
-    configuration.add(Toy{barriers: 2, blocks:2, blacks: 1,..Toy::default()});
-    configuration.add(Toy{barriers: 2, blocks:2, blacks: 1, dips:2,..Toy::default()});
-    configuration.add(Toy{barriers: 2, targets:2, ..Toy::default()});
-    configuration.add(Toy{barriers: 2, disks: 2, cylinders:3, ..Toy::default()});
+    configuration.add(Toy {
+        blocks: 1,
+        help: "Use arrow keys to move the ball around\nand push the toy off the edge".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        blocks: 2,
+        disks: 2,
+        help: "Don't let the red ball fall of the edge while pushing toys around".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        blocks: 1,
+        disks: 1,
+        spikeys: 1,
+        help: "The spikey ball my need a pretty good push".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        blocks: 2,
+        disks: 2,
+        help: "Use space bar to bounce the ball".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 1,
+        blocks: 2,
+        help: "Use space bar to bounce the ball over the barrier".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        blacks: 3,
+        help: "Hit the top of the black disk to turn it white and\nget bonus points when you push it off the edge".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        dips: 2,
+        help: "Put the ball in the dip to turn the piece white and\n get bonus points when you push it off the edge".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        targets: 1,
+        help: "Hit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        lifesavers: 2,
+        help: "Put the ball in the lifesaver to earn bonus points.".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        blocks: 15,
+        ghosts: 4,
+        disks: 5,
+        cylinders: 3,
+        help: "Are those almost-invisible block real?".to_string(),
+        ..Toy::default()
+    });
+
+    configuration.add(Toy {
+        barriers: 2,
+        blocks: 6,
+        ghosts: 2,
+        blacks: 2,
+        dips: 2,
+        targets: 2,
+        cylinders: 3,
+        help: "More toys to push off the edge. Don't forget the toys on the scoreboard".to_string(),
+        ..Toy::default()
+    });
+    configuration.add(Toy {
+        barriers: 2,
+        blocks: 6,
+        ghosts: 4,
+        blacks: 3,
+        dips: 3,
+        targets: 3,
+        cylinders: 4,
+        spikeys: 1,
+        lifesavers: 2,
+        help: "Lots of toys.".to_string(),
+        ..Toy::default()
+    });
 }
 fn toggle_wind(
     mut force_query: Query<&mut ExternalForce>,
@@ -498,7 +590,7 @@ fn handle_help_message (
             HelpType::Score => {
                 for (entity, mut text_mesh, mut visibility) in score_query.iter_mut() {
                     *visibility = Visibility::Visible { };
-                    if countdown.active {
+                    if countdown.active && !text_mesh.text.ends_with(message.text.as_str()) {
                         text_mesh.text += "\nand ";
                         text_mesh.text += message.text.as_str();
                     } else {
@@ -667,7 +759,7 @@ fn create_blocks(
                 //                    alpha_mode: AlphaMode::Blend,
                 ..default()
             })),
-            NotShadowCaster,
+//            NotShadowCaster,
             ExternalImpulse::default(),
             PointValue { value: 15 },
             // Lower the Damping for a more advanced game
@@ -752,6 +844,7 @@ fn create_blacks(
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
+            ColliderMassProperties::Density(0.0),
             Restitution::new(0.1),
             Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
             MeshMaterial3d(materials.add(BLACK_DISK_COLOR)),
@@ -770,7 +863,7 @@ fn create_blacks(
                 SensorChild {next_color: WHITE_DISK_COLOR },
                 Collider::ball(0.2),
                 Sensor,
-                PointValue { value: 20 },
+                PointValue { value: 100 },
                 ActiveEvents::COLLISION_EVENTS,
                 Transform::from_xyz(0.0, 0.6, 0.0),
             ));
@@ -778,7 +871,7 @@ fn create_blacks(
                 SensorChild {next_color: WHITE_DISK_COLOR },
                 Collider::ball(0.7),
                 Sensor,
-                PointValue { value: 20 },
+                PointValue { value: 100 },
                 ActiveEvents::COLLISION_EVENTS,
                 Transform::from_xyz(0.0, -0.6, 0.0),
             ));
@@ -883,6 +976,20 @@ fn create_targets(
             Transform::from_xyz(-14.0, 7.0, -5.0),
         ));
     }
+    if n > 2 {
+        commands.spawn((
+            ToyType { dynamic: false },
+            RigidBody::Fixed,
+            PointValue { value: 45 },
+            ExternalImpulse::default(), // For when this becomes dynamic
+            Friction::new(0.1),
+            Restitution::new(0.1),
+            Collider::cuboid(0.1, 1.0, 1.0),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.2, 1.5, 1.5)))),
+            MeshMaterial3d(materials.add(TARGET_COLOR)),
+            Transform::from_xyz(-14.0, 7.0, 5.0),
+        ));
+    }
 }
 
 fn create_ghosts(
@@ -930,10 +1037,10 @@ fn create_lifesavers (
             Restitution::new(0.1),
             ExternalImpulse::default(),
             PointValue { value: 10 },
-            ColliderMassProperties::Density(0.25),
+            ColliderMassProperties::Density(0.50),
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
             AsyncSceneCollider::default(),
-            Transform::from_xyz(10.0, 12.0, 7.0).with_scale(Vec3::splat(1.0)),
+            Transform::from_translation(random_location()).with_scale(Vec3::splat(1.0)),
         )).with_children(|parent| {
             parent.spawn((
                 SensorChild {next_color: WHITE_DISK_COLOR},
@@ -944,6 +1051,25 @@ fn create_lifesavers (
                 Transform::from_xyz(0.0, 0.2, 0.0),
             ));
         });
+    }
+}
+fn create_spikeys(
+    n: i32,
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+) {
+    for _n in 0..n {
+        commands.spawn((
+            RigidBody::Dynamic,
+            ToyType { dynamic: true },
+            Friction::new(1.0),
+            Restitution::new(0.1),
+            ExternalImpulse::default(),
+            PointValue { value: 10 },
+            WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/spikey.glb#collection"))),
+            AsyncSceneCollider::default(),
+            Transform::from_translation(random_location()).with_scale(Vec3::splat(0.3)),
+        ));
     }
 }
 fn create_cylinders(
@@ -988,12 +1114,12 @@ fn handle_next_level(
             commands.entity(entity).despawn();
         }
         scoreboard.next_level();
-        if scoreboard.total == 0 {
-//            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "No score yet".to_string() });
-        } else if scoreboard.score == 0 {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("No score for level {}", scoreboard.level) });
-        }
-        commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press Enter to drop a ball".to_string() });
+        // if scoreboard.total == 0 {
+        //     commands.write_message(HelpMessage { help_type: HelpType::Score, text: "No score yet".to_string() });
+        // } else if scoreboard.score == 0 {
+        //     commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("No score for level {}", scoreboard.level) });
+        // }
+        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
         //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage {});
         let toys = configuration.get_toys(scoreboard.level);
@@ -1005,10 +1131,12 @@ fn handle_next_level(
         create_dips(toys.dips, &mut commands, &mut meshes, &mut materials, &asset_server);
         create_blacks(toys.blacks, &mut commands, &mut meshes, &mut materials);
         create_bumpys(toys.bumpys, &mut commands, &asset_server);
+        create_spikeys(toys.spikeys, &mut commands, &asset_server);
         create_targets(toys.targets, &mut commands, &mut meshes, &mut materials);
         create_ghosts(toys.ghosts, &mut commands, &mut meshes, &mut materials);
         create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
         create_cylinders(toys.cylinders, &mut commands, &asset_server);
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
         println!("Done creating toys");
     }
 }
@@ -1043,17 +1171,6 @@ fn drop_a_ball(
             commands.write_message(HelpMessage { help_type: HelpType::Next, text: "First, press G to start a game".to_string() });
         }
         return;
-    }
-    if scoreboard.level == 1 {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Use arrow keys to move the ball around\nand push toys off the edge".to_string()});
-    } else if scoreboard.level == 2 {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Use space bar to bounce the ball".to_string()});
-    } else if scoreboard.level == 3 {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Hit the toys on the scoreboard, too".to_string()});
-    } else if scoreboard.level == 5 {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Hit the top of the black toy to turn it white".to_string()});
-    } else {
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Go for it".to_string()});
     }
     scoreboard.use_a_ball();
     // Make any live balls dead, usually only one
@@ -1103,7 +1220,12 @@ fn impulse(
     mut commands: Commands,
 ) {
     // Just interested in the live ball
-    for (mut impulse, ball) in balls.iter_mut() {
+    let balls = balls.iter_mut();
+    if balls.len() == 0 {
+        commands.write_message(HelpMessage{help_type: HelpType::Score, text: "Press enter to get a fresh ball".to_string()});
+        return;
+    }
+    for (mut impulse, ball) in balls {
         if ball.live  {
             // See which key was pressed
             for key in keyboard_input.get_just_pressed() {
