@@ -67,6 +67,7 @@ fn main() {
             impulse.run_if(input_just_pressed(KeyCode::Numpad8)),
             start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
             start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
+            restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
             update_scoreboard.run_if(resource_changed::<ScoreBoard>),
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
@@ -77,7 +78,7 @@ fn main() {
             handle_point_value_message,
             handle_activate_game,
             handle_impulse_message,
-            handle_next_level,
+            handle_new_level,
             handle_sensor_events,
             handle_help_message,
             handle_sound,
@@ -89,7 +90,7 @@ fn main() {
     .add_message::<ActivateGameMessage>()
     .add_message::<ImpulseMessage>()
     .add_message::<HelpMessage>()
-    .add_message::<NextLevel>()
+    .add_message::<PlayLevel>()
     .add_message::<SoundMessage>()
     .run();
 }
@@ -180,7 +181,7 @@ struct SoundMessage {
     sound_type: SoundType,
 }
 #[derive(Message)]
-struct NextLevel {
+struct PlayLevel {
 }
 enum HelpType {
     Score,
@@ -258,6 +259,11 @@ impl ScoreBoard {
         self.level += 1;
         self.balls = 3;
     }
+    fn same_level(&mut self) {
+        self.score = 0;
+//        self.level += 1;
+        self.balls = 3;
+    }
     fn reset(&mut self) {
         println!("reset scoreboard");
         self.running = false;
@@ -293,7 +299,7 @@ fn setup_configuration(
     configuration.add(Toy {
         blocks: 2,
         disks: 2,
-        help: "Don't let the red ball fall of the edge while pushing toys around".to_string(),
+        help: "Don't let the red ball fall off the edge while pushing toys".to_string(),
         ..Toy::default()
     });
 
@@ -301,7 +307,7 @@ fn setup_configuration(
         blocks: 1,
         disks: 1,
         spikeys: 1,
-        help: "The spikey ball my need a pretty good push".to_string(),
+        help: "The spikey ball may need a pretty good push".to_string(),
         ..Toy::default()
     });
 
@@ -557,13 +563,8 @@ fn score_fallen_entities(
                             commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Game Over. Press G to start new game".to_string()});
                         }
                     } else {
-                        if point_value.value < 0 {
-                            commands.write_message( HelpMessage{help_type: HelpType::Score,
-                                text: format!("That cost you {} points. Press Enter for another ball", point_value.value)});
-                        } else {
-                            commands.write_message( HelpMessage{help_type: HelpType::Score,
-                                text: format!("You scored {} points. Press Enter for another ball", point_value.value)});
-                        }
+                        commands.write_message( HelpMessage{help_type: HelpType::Score,
+                            text: "Press Enter for another ball".to_string()});
                     }
 
                     commands.write_message(
@@ -661,9 +662,9 @@ fn handle_sound(
 }
 fn random_location() -> Vec3 {
     let mut rng = rand::rng();
-    Vec3::new(rng.random_range(-10.0..10.0),
+    Vec3::new(rng.random_range(-10..10) as f32,
               10.0 + rng.random_range(0.0..10.0),
-              rng.random_range(-9.0..9.0))
+              rng.random_range(-9..9) as f32)
 }
 
 fn handle_activate_game(
@@ -1064,8 +1065,9 @@ fn create_spikeys(
             ToyType { dynamic: true },
             Friction::new(1.0),
             Restitution::new(0.1),
+            ColliderMassProperties::Density(0.50),
             ExternalImpulse::default(),
-            PointValue { value: 10 },
+            PointValue { value: 25 },
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/spikey.glb#collection"))),
             AsyncSceneCollider::default(),
             Transform::from_translation(random_location()).with_scale(Vec3::splat(0.3)),
@@ -1091,8 +1093,8 @@ fn create_cylinders(
         ));
     }
 }
-fn handle_next_level(
-    mut messages: MessageReader<NextLevel>,
+fn handle_new_level(
+    mut messages: MessageReader<PlayLevel>,
     configuration: Res<Configuration>,
     mut old_balls: Query<Entity, With<BouncyBall>>,
     mut old_toys: Query<Entity, With<ToyType>>,
@@ -1113,7 +1115,10 @@ fn handle_next_level(
         for entity in old_barriers.iter_mut() {
             commands.entity(entity).despawn();
         }
-        scoreboard.next_level();
+        if scoreboard.level < 1 {
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
+            return;
+        }
         // if scoreboard.total == 0 {
         //     commands.write_message(HelpMessage { help_type: HelpType::Score, text: "No score yet".to_string() });
         // } else if scoreboard.score == 0 {
@@ -1137,7 +1142,7 @@ fn handle_next_level(
         create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
         create_cylinders(toys.cylinders, &mut commands, &asset_server);
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
-        println!("Done creating toys");
+//        println!("Done creating toys");
     }
 }
 fn start_new_game(
@@ -1145,16 +1150,26 @@ fn start_new_game(
     mut commands: Commands,
 ) {
     scoreboard.reset();
-    println!("Sending next level from start_new_game");
-    commands.write_message(NextLevel {});
+    scoreboard.next_level();
+//    println!("Sending next level from start_new_game");
+    commands.write_message(PlayLevel {});
     commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the N key to start the first level".to_string()});
 }
 
 fn start_next_level(
+    mut scoreboard: ResMut<ScoreBoard>,
     mut commands: Commands,
 ) {
+    scoreboard.next_level();
 //    println!("Sending next level from start_next_Level");
-    commands.write_message(NextLevel {});
+    commands.write_message(PlayLevel {});
+}
+fn restart_same_level(
+    mut scoreboard: ResMut<ScoreBoard>,
+    mut commands: Commands,
+) {
+    scoreboard.same_level();
+    commands.write_message(PlayLevel {});
 }
 fn drop_a_ball(
     mut commands: Commands,
@@ -1163,12 +1178,11 @@ fn drop_a_ball(
     mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
-    // Deduct 1 ball from count
     if scoreboard.balls == 0 {
         if scoreboard.running {
             commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You have no balls".to_string() });
         } else {
-            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "First, press G to start a game".to_string() });
+            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
         }
         return;
     }
@@ -1285,7 +1299,7 @@ fn setup_physics(
     asset_server: Res<AssetServer>,
 )
 {
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    let font = asset_server.load("fonts/Archivo.ttf");
 
     commands.spawn((
         Score{},
