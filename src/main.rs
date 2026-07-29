@@ -48,7 +48,8 @@ fn main() {
         .add_systems(Startup, setup_game_board)
         .add_systems(Startup, setup_window)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(ScoreBoard::new())
+        .insert_resource(Scoreboard::new())
+        .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(ScoringHelpTimer::new(8.0))
         .insert_resource(Configuration::new())
@@ -70,8 +71,9 @@ fn main() {
             start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
             start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
             restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
-//            show_fences.run_if(input_just_pressed(KeyCode::KeyF)),
-            update_scoreboard.run_if(resource_changed::<ScoreBoard>),
+            //            show_fences.run_if(input_just_pressed(KeyCode::KeyF)),
+            update_scoreboard.run_if(resource_changed::<Scoreboard>),
+            update_countdown_face.run_if(resource_changed::<CountdownBoard>),
 
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
@@ -108,7 +110,7 @@ struct ScoringHelpTimer {
 }
 #[derive(Default, Clone, Debug)]
 struct Toy {
-    seconds: Duration,
+    seconds: Option<Duration>,
     balls: i32,
     barriers: i32,
     blocks: i32,
@@ -251,34 +253,47 @@ struct Fence {
 struct ToyType {
     dynamic: bool,
 }
+#[derive(Resource)]
+struct CountdownBoard {
+    goal: Option<Duration>,
+    countdown: Option<Duration>,
+}
+impl CountdownBoard {
+    fn new() -> Self {
+        Self{ goal: None, countdown: None }
+    }
+    fn start(&mut self, goal: Option<Duration>) {
+        self.goal = goal;
+        self.countdown = goal;
+    }
+    // Return true if the countdown is over
+    fn reduce_countdown(&mut self, tick: Duration) {
+        if self.countdown != None {
+            self.countdown = self.countdown.unwrap().checked_sub(tick);
+        }
+    }
+    fn is_running(&self) -> bool {
+        self.countdown != None
+    }
+}
 
 #[derive(Resource)]
-struct ScoreBoard {
+struct Scoreboard {
     running: bool,
     score: i32,
     level: i32,
     total: i32,
     toys: i32,
     balls: i32,
-    countdown: f32,
 }
 
-impl ScoreBoard {
+impl Scoreboard {
     fn new() -> Self {
-        Self{running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, countdown: 0.0}
+        Self{running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0}
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
         self.total += incr;
-    }
-
-    fn reduce_countdown(&mut self, tick: f32) {
-        self.countdown -= tick;
-        if self.countdown < 0.0 {
-            self.countdown = 0.0;
-        } else {
-//            println!("TIck: {}, Countdown: {}", tick, self.countdown);
-        }
     }
 
     fn use_a_ball(&mut self) {
@@ -291,12 +306,10 @@ impl ScoreBoard {
     fn stop(&mut self) {
         println!("stopping game");
         self.running = false;
-        self.countdown = 0.0;
     }
     fn start(&mut self) {
         println!("starting game");
         self.running = true;
-        self.countdown = 60.0;
     }
     fn next_level(&mut self) {
         self.score = 0;
@@ -358,15 +371,17 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         fences: 1,
         blocks: 1,
         disks: 1,
-        help: "Fewer balls available starting at this level".to_string(),
+        help: "Fewer balls available now and the levels are timed".to_string(),
         ..Toy::default()
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         blocks: 2,
         disks: 2,
@@ -375,6 +390,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 1,
         blocks: 2,
@@ -383,6 +399,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
         blacks: 3,
@@ -391,6 +408,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         dips: 2,
@@ -399,6 +417,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         targets: 1,
@@ -407,6 +426,8 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(3)),
+        balls: 3,
         barriers: 2,
         lifesavers: 2,
         help: "Put the ball in the lifesaver to earn bonus points.".to_string(),
@@ -414,6 +435,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(8)),
         balls: 3,
         barriers: 2,
         blocks: 15,
@@ -426,6 +448,7 @@ fn setup_configuration(
     });
 
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(9)),
         balls: 3,
         barriers: 2,
         blocks: 6,
@@ -438,6 +461,7 @@ fn setup_configuration(
         ..Toy::default()
     });
     configuration.add(Toy {
+        seconds: Some(Duration::from_mins(10)),
         balls: 3,
         barriers: 2,
         blocks: 6,
@@ -503,12 +527,12 @@ fn toggle_overhead_camera(
 fn update_countdown(
     mut commands: Commands,
     time: Res<Time>,
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
+    mut countdown_board: ResMut<CountdownBoard>,
 ) {
-    if scoreboard.running {
-        scoreboard.reduce_countdown(time.delta_secs());
-        if scoreboard.countdown <= 0.0 {
-            scoreboard.countdown = 0.0;
+    if scoreboard.running && countdown_board.is_running() {
+        countdown_board.reduce_countdown(time.delta());
+        if !countdown_board.is_running() {
             scoreboard.stop();
             commands.write_message(HelpMessage {
                 help_type: HelpType::Score,
@@ -587,7 +611,7 @@ fn score_fallen_entities(
     // mut materials: ResMut<Assets<StandardMaterial>>,
     ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<ToyType>)>,
     toy_query: Query<(Entity, &Transform, &PointValue), (With<ToyType>, Without<BouncyBall>)>,
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     scoreboard.toys = 0;
     // score and cleanup old toys and balls that are out of range
@@ -764,8 +788,8 @@ fn random_location() -> Vec3 {
 
 fn handle_activate_game(
     mut messages: MessageReader<ActivateGameMessage>,
-//    mut commands: Commands,
-    mut scoreboard: ResMut<ScoreBoard>,
+    //    mut commands: Commands,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     for _event in messages.read() {
         println!("activate game");
@@ -802,8 +826,7 @@ fn handle_asset_color_propagation(
         }
     }
 }
-fn create_clock_board(
-    seconds: Duration,
+fn create_countdown_board(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -839,8 +862,8 @@ commands.spawn((
         NotShadowCaster,
         Mesh3d::default(),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 0.1, 1.0),
-            metallic: 0.8,
+            base_color: Color::srgb(0.0, 0.0, 0.0),
+//            metallic: 0.8,
             perceptual_roughness: 0.3,
             reflectance: 0.8,
             double_sided: true,
@@ -1323,7 +1346,8 @@ fn handle_new_level(
     mut old_balls: Query<Entity, With<BouncyBall>>,
     mut old_toys: Query<Entity, With<ToyType>>,
     mut old_barriers: Query<Entity, With<Barrier>>,
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
+    mut countdown_board: ResMut<CountdownBoard>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -1333,6 +1357,11 @@ fn handle_new_level(
     clock_face_query: Query<Entity, With<ClockBoardFace>>,
 ) {
     for _event in messages.read() {
+        if scoreboard.level < 1 {
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
+            return;
+        }
+        // Remove old balls, toys, and barriers
         for entity in old_balls.iter_mut() {
             commands.entity(entity).despawn();
         }
@@ -1342,24 +1371,22 @@ fn handle_new_level(
         for entity in old_barriers.iter_mut() {
             commands.entity(entity).despawn();
         }
-        if scoreboard.level < 1 {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
-            return;
+        // Remove previous fences
+        for entity in fence_query.iter() {
+            commands.entity(entity).despawn();
         }
-        // if scoreboard.total == 0 {
-        //     commands.write_message(HelpMessage { help_type: HelpType::Score, text: "No score yet".to_string() });
-        // } else if scoreboard.score == 0 {
-        //     commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("No score for level {}", scoreboard.level) });
-        // }
+        // Remove old clocks and clock faces, if any
+        for entity in clock_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        for entity in clock_face_query.iter() {
+            commands.entity(entity).despawn();
+        }
         commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
         //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage {});
         let toys = configuration.get_toys(scoreboard.level);
 //        println!("Level {}, Toys {:?}", scoreboard.level, toys);
-        // Clear previous fences
-        for entity in fence_query.iter() {
-            commands.entity(entity).despawn();
-        }
         scoreboard.set_balls_count(toys.balls);
         create_fences(toys.fences, &mut commands, &mut meshes, &mut materials);
         create_blocks(toys.blocks, &mut commands, &mut meshes, &mut materials);
@@ -1374,14 +1401,11 @@ fn handle_new_level(
         create_ghosts(toys.ghosts, &mut commands, &mut meshes, &mut materials);
         create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
         create_cylinders(toys.cylinders, &mut commands, &asset_server);
-        // Clean up old clocks and clock faces, if any
-        for entity in clock_query.iter() {
-            commands.entity(entity).despawn();
+        if toys.seconds != None {
+            create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server);
+            // Start the clock
+            countdown_board.start(toys.seconds);
         }
-        for entity in clock_face_query.iter() {
-            commands.entity(entity).despawn();
-        }
-        create_clock_board(toys.seconds, &mut commands, &mut meshes, &mut materials, &asset_server);
 
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
@@ -1389,7 +1413,7 @@ fn handle_new_level(
     }
 }
 fn start_new_game(
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
 ) {
     scoreboard.reset();
@@ -1400,7 +1424,7 @@ fn start_new_game(
 }
 
 fn start_next_level(
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
 ) {
     scoreboard.next_level();
@@ -1408,7 +1432,7 @@ fn start_next_level(
     commands.write_message(PlayLevel {});
 }
 fn restart_same_level(
-    mut scoreboard: ResMut<ScoreBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
 ) {
 //    scoreboard.same_level();
@@ -1418,9 +1442,8 @@ fn drop_a_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-//    mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
-    mut query: Query<(Entity), With<BouncyBall>>,
-    mut scoreboard: ResMut<ScoreBoard>,
+    query: Query<(Entity), With<BouncyBall>>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     if scoreboard.balls == 0 {
         if scoreboard.running {
@@ -1514,20 +1537,28 @@ fn impulse(
         }
     }
 }
-
+fn update_countdown_face(
+    mut clock_board_face_query: Query<&mut TextMesh, With<ClockBoardFace>>,
+    countdown_board: Res<CountdownBoard>,
+) {
+    if countdown_board.is_running() {
+        for mut text in clock_board_face_query.iter_mut() {
+            let total_secs = countdown_board.countdown.unwrap().as_secs();
+            let minutes = total_secs / 60;
+            let seconds = total_secs % 60;
+            text.text = format!("{:02}:{:02}", minutes, seconds);
+        };
+    }
+}
 fn update_scoreboard(
     mut scoreboard_query: Query<&mut TextMesh, (With<Score>, Without<ClockBoardFace>)>,
-    scoreboard: Res<ScoreBoard>,
-    mut clock_board_face_query: Query<&mut TextMesh, (With<ClockBoardFace>,Without<Score>)>,
+    scoreboard: Res<Scoreboard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
         text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
                             scoreboard.level,
                             scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
-    };
-    for mut text in clock_board_face_query.iter_mut() {
-        text.text = format!("{}",scoreboard.countdown as i32);
     };
 }
 fn setup_game_board(
