@@ -4,6 +4,7 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
+use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::log::Level;
 use bevy::window::{PrimaryWindow};
@@ -107,6 +108,7 @@ struct ScoringHelpTimer {
 }
 #[derive(Default, Clone, Debug)]
 struct Toy {
+    seconds: Duration,
     balls: i32,
     barriers: i32,
     blocks: i32,
@@ -207,6 +209,12 @@ struct Score {
 struct HelpWall {
 }
 #[derive(Component)]
+struct ClockBoard {
+}
+#[derive(Component)]
+struct ClockBoardFace {
+}
+#[derive(Component)]
 struct ScoringWall {
 }
 
@@ -269,7 +277,7 @@ impl ScoreBoard {
         if self.countdown < 0.0 {
             self.countdown = 0.0;
         } else {
-            println!("TIck: {}, Countdown: {}", tick, self.countdown);
+//            println!("TIck: {}, Countdown: {}", tick, self.countdown);
         }
     }
 
@@ -497,18 +505,19 @@ fn update_countdown(
     time: Res<Time>,
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
-    scoreboard.reduce_countdown(time.delta_secs());
-    if scoreboard.countdown <= 0.0 {
-        scoreboard.countdown = 0.0;
-        if scoreboard.running {
+    if scoreboard.running {
+        scoreboard.reduce_countdown(time.delta_secs());
+        if scoreboard.countdown <= 0.0 {
+            scoreboard.countdown = 0.0;
             scoreboard.stop();
             commands.write_message(HelpMessage {
                 help_type: HelpType::Score,
-                text: "Level has timed out. Press G to start a new game.".to_string()
+                text: "Time has expired. Press G to start a new game.".to_string()
             });
         }
     }
- }
+}
+
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     ball_query: Query<(Entity, &BouncyBall), With<BouncyBall>>,
@@ -792,6 +801,58 @@ fn handle_asset_color_propagation(
             }
         }
     }
+}
+fn create_clock_board(
+    seconds: Duration,
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    asset_server: &Res<AssetServer>,
+) {
+    let font = asset_server.load("fonts/digital_clock.ttf");
+    commands.spawn((
+        ClockBoard{},
+        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
+        RigidBody::Fixed,
+        Friction::new(0.5),
+        Restitution::new(0.1),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 3.0, 8.0)))),
+        MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
+        Collider::cuboid(0.25, 4.0, 4.0),
+        Transform::from_xyz(14.5, 5.0, 0.0),
+    ));
+    // .with_children(|parent| {
+    //     parent.spawn((
+commands.spawn((
+    ClockBoardFace{},
+        TextMesh {
+            text: "00:00".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.1,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                justify: JustifyText::Center,
+                ..default()
+            },
+        },
+        NotShadowCaster,
+        Mesh3d::default(),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(1.0, 0.1, 1.0),
+            metallic: 0.8,
+            perceptual_roughness: 0.3,
+            reflectance: 0.8,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform {
+            translation: Vec3::new(14.25, 5.0, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, -FRAC_PI_2),   // 90 degrees
+            scale: Vec3::splat(3.0),
+        }
+    ));
 }
 fn create_barriers(
     n: i32,
@@ -1267,7 +1328,9 @@ fn handle_new_level(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    query: Query<Entity, With<Fence>>,
+    fence_query: Query<Entity, With<Fence>>,
+    clock_query: Query<Entity, With<ClockBoard>>,
+    clock_face_query: Query<Entity, With<ClockBoardFace>>,
 ) {
     for _event in messages.read() {
         for entity in old_balls.iter_mut() {
@@ -1294,7 +1357,7 @@ fn handle_new_level(
         let toys = configuration.get_toys(scoreboard.level);
 //        println!("Level {}, Toys {:?}", scoreboard.level, toys);
         // Clear previous fences
-        for entity in query.iter() {
+        for entity in fence_query.iter() {
             commands.entity(entity).despawn();
         }
         scoreboard.set_balls_count(toys.balls);
@@ -1311,6 +1374,15 @@ fn handle_new_level(
         create_ghosts(toys.ghosts, &mut commands, &mut meshes, &mut materials);
         create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
         create_cylinders(toys.cylinders, &mut commands, &asset_server);
+        // Clean up old clocks and clock faces, if any
+        for entity in clock_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        for entity in clock_face_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        create_clock_board(toys.seconds, &mut commands, &mut meshes, &mut materials, &asset_server);
+
         commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
 //        println!("Done creating toys");
@@ -1444,16 +1516,19 @@ fn impulse(
 }
 
 fn update_scoreboard(
-    mut scoreboard_query: Query<&mut TextMesh, With<Score>>,
+    mut scoreboard_query: Query<&mut TextMesh, (With<Score>, Without<ClockBoardFace>)>,
     scoreboard: Res<ScoreBoard>,
+    mut clock_board_face_query: Query<&mut TextMesh, (With<ClockBoardFace>,Without<Score>)>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}\nTime Remaining: {}",
+        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
                             scoreboard.level,
                             scoreboard.score, scoreboard.total,
-                            scoreboard.toys, scoreboard.balls,
-                            scoreboard.countdown as i32);
-        };
+                            scoreboard.toys, scoreboard.balls);
+    };
+    for mut text in clock_board_face_query.iter_mut() {
+        text.text = format!("{}",scoreboard.countdown as i32);
+    };
 }
 fn setup_game_board(
     mut commands: Commands,
