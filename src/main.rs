@@ -162,6 +162,7 @@ enum SoundType {
     Lose,
     Bonus,
     NewLevel,
+    FinishLevel,
 }
 #[derive(Message)]
 struct ImpulseMessage {
@@ -321,7 +322,7 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "Use arrow keys to move the ball around\nand push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
+        help: "Use arrow keys to move the ball around and push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
         ..Toy::default()
     });
 
@@ -339,7 +340,6 @@ fn setup_configuration(
         fences: 1,
         blocks: 1,
         disks: 1,
-        spikeys: 1,
         help: "Fewer balls available starting at this level".to_string(),
         ..Toy::default()
     });
@@ -398,6 +398,7 @@ fn setup_configuration(
         ghosts: 4,
         disks: 5,
         cylinders: 3,
+        spikeys: 1,
         help: "Don't forget the transparent blocks".to_string(),
         ..Toy::default()
     });
@@ -583,7 +584,7 @@ fn score_fallen_entities(
                 text: "100 points for clearing this level".to_string()});
         let text = format!("Press N to start level {}", scoreboard.level+1);
         commands.write_message( HelpMessage{help_type: HelpType::Next, text});
-        commands.write_message(SoundMessage{sound_type: SoundType::Win});
+        commands.write_message(SoundMessage{sound_type: SoundType::FinishLevel});
         return;
     }
     // Look for fallen balls
@@ -701,7 +702,13 @@ fn handle_sound(
             }
             SoundType::NewLevel => {
                 commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/tada.ogg")),
+                    AudioPlayer::new(asset_server.load("audio/intro.ogg")),
+                    PlaybackSettings::ONCE,
+                ));
+            }
+            SoundType::FinishLevel => {
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load("audio/fanfare.ogg")),
                     PlaybackSettings::ONCE,
                 ));
             }
@@ -1307,32 +1314,23 @@ fn drop_a_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
+//    mut query: Query<(&mut BouncyBall, &mut PointValue, &MeshMaterial3d<StandardMaterial>), With<BouncyBall>>,
+    mut query: Query<(Entity), With<BouncyBall>>,
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
     if scoreboard.balls == 0 {
         if scoreboard.running {
             commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You have no balls".to_string() });
-        } else {
-            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
         }
+        commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
         return;
     }
+    // Update scoreboard
     scoreboard.use_a_ball();
-    // Make any live balls dead, usually only one
-    for (mut bouncyball, mut point_value, material_handle) in query.iter_mut() {
-        if bouncyball.live {
-            bouncyball.live = false;
-            point_value.value = 2;
-            if let Some(mut material) = materials.get_mut(material_handle) {
-                material.base_color = DEAD_BALL;
-            }
-        }
+    // Clean up previous balls
+    for (entity) in query.iter() {
+        commands.entity(entity).despawn();
     }
-    let mut rng = rand::rng();
-    let x_pos: f32 = rng.random_range(-12.0..0.);
-    let y_pos: f32 = rng.random_range(15.0..25.);
-    let z_pos: f32 = rng.random_range(-9.0..9.0);
     // Spawn a Dynamic Bouncing Ball
     commands.spawn((
         CollisionGroups::new(Group::GROUP_1, Group::GROUP_1 | Group::GROUP_2 | Group::GROUP_3 | Group::GROUP_4),
@@ -1352,7 +1350,7 @@ fn drop_a_ball(
         Restitution::new(1.0),
         //        GravityScale(2.0),
         ExternalImpulse::default(),
-        Transform::from_xyz(x_pos, y_pos, z_pos),
+        Transform::from_translation(random_location()),
         Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
         ExternalForce::default(),
         Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
