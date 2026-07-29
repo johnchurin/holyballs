@@ -74,6 +74,7 @@ fn main() {
 
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
+        .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
         ))
@@ -251,16 +252,27 @@ struct ScoreBoard {
     total: i32,
     toys: i32,
     balls: i32,
+    countdown: f32,
 }
 
 impl ScoreBoard {
     fn new() -> Self {
-        Self{running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0}
+        Self{running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, countdown: 0.0}
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
         self.total += incr;
     }
+
+    fn reduce_countdown(&mut self, tick: f32) {
+        self.countdown -= tick;
+        if self.countdown < 0.0 {
+            self.countdown = 0.0;
+        } else {
+            println!("TIck: {}, Countdown: {}", tick, self.countdown);
+        }
+    }
+
     fn use_a_ball(&mut self) {
         self.balls -= 1;
     }
@@ -271,10 +283,12 @@ impl ScoreBoard {
     fn stop(&mut self) {
         println!("stopping game");
         self.running = false;
+        self.countdown = 0.0;
     }
     fn start(&mut self) {
         println!("starting game");
         self.running = true;
+        self.countdown = 60.0;
     }
     fn next_level(&mut self) {
         self.score = 0;
@@ -478,6 +492,23 @@ fn toggle_overhead_camera(
         }
     }
 }
+fn update_countdown(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut scoreboard: ResMut<ScoreBoard>,
+) {
+    scoreboard.reduce_countdown(time.delta_secs());
+    if scoreboard.countdown <= 0.0 {
+        scoreboard.countdown = 0.0;
+        if scoreboard.running {
+            scoreboard.stop();
+            commands.write_message(HelpMessage {
+                help_type: HelpType::Score,
+                text: "Level has timed out. Press G to start a new game.".to_string()
+            });
+        }
+    }
+ }
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     ball_query: Query<(Entity, &BouncyBall), With<BouncyBall>>,
@@ -728,6 +759,7 @@ fn handle_activate_game(
     mut scoreboard: ResMut<ScoreBoard>,
 ) {
     for _event in messages.read() {
+        println!("activate game");
         scoreboard.start();
     }
 }
@@ -1416,10 +1448,11 @@ fn update_scoreboard(
     scoreboard: Res<ScoreBoard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
-                          scoreboard.level,
-                          scoreboard.score, scoreboard.total,
-                            scoreboard.toys, scoreboard.balls);
+        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}\nTime Remaining: {}",
+                            scoreboard.level,
+                            scoreboard.score, scoreboard.total,
+                            scoreboard.toys, scoreboard.balls,
+                            scoreboard.countdown as i32);
         };
 }
 fn setup_game_board(
@@ -1466,9 +1499,9 @@ fn setup_game_board(
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 7.0, 14.0)))),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
         MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
-        Collider::cuboid(0.25, 3.5, 7.0),
+        Collider::cuboid(0.25, 4.0, 7.0),
         Transform::from_xyz(-14.5, 5.0, 0.0),
     ));
 
