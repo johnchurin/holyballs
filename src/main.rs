@@ -74,12 +74,12 @@ fn main() {
             //            show_fences.run_if(input_just_pressed(KeyCode::KeyF)),
             update_scoreboard.run_if(resource_changed::<Scoreboard>),
             update_countdown_face.run_if(resource_changed::<CountdownBoard>),
-
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
+            update_dead_balls,
         ))
         .add_systems(Update, (
             handle_point_value_message,
@@ -1438,11 +1438,29 @@ fn restart_same_level(
 //    scoreboard.same_level();
     commands.write_message(PlayLevel {});
 }
+fn update_dead_balls (
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut BouncyBall), With<BouncyBall>>,
+    time: Res<Time>,
+) {
+    for (entity, mut transform, mut ball) in query.iter_mut() {
+        // Dead balls only
+        if !ball.live {
+            if transform.scale.x < 0.1 {
+                commands.entity(entity).despawn();
+                println!("Dead ball despawned");
+            } else {
+                transform.scale -= 1.0 * time.delta_secs();
+            }
+        }
+    }
+
+}
 fn drop_a_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(Entity), With<BouncyBall>>,
+    mut query: Query<(&mut BouncyBall), With<BouncyBall>>,
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     if scoreboard.balls == 0 {
@@ -1454,9 +1472,9 @@ fn drop_a_ball(
     }
     // Update scoreboard
     scoreboard.use_a_ball();
-    // Clean up previous balls
-    for (entity) in query.iter() {
-        commands.entity(entity).despawn();
+    // Clean up previous balls, just change it to dead and we clean it up once it has shrunk to nothing
+    for (mut ball) in query.iter_mut() {
+        ball.live = false;
     }
     // Spawn a Dynamic Bouncing Ball
     commands.spawn((
