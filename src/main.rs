@@ -51,11 +51,11 @@ fn main() {
         .insert_resource(Scoreboard::new())
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
-        .insert_resource(ScoringHelpTimer::new(8.0))
+        .insert_resource(ScoringHelpTimer::new(4.0))
         .insert_resource(Configuration::new())
+        .insert_resource(GameLevelResource::new())
         .add_systems(Update, (
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
-            toggle_wind.run_if(input_just_pressed(KeyCode::KeyW)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
             impulse.run_if(input_just_pressed(KeyCode::Space)),
@@ -79,7 +79,7 @@ fn main() {
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
-            update_dead_balls,
+//            update_dead_balls,
         ))
         .add_systems(Update, (
             handle_point_value_message,
@@ -108,8 +108,25 @@ struct ScoringHelpTimer {
     duration: f32,
     active: bool,
 }
+#[derive(Resource)]
+struct GameLevelResource {
+    game_level: Option<GameLevel>,
+}
+impl GameLevelResource {
+    fn new() -> Self {
+        Self {
+            game_level: None,
+        }
+    }
+    fn set_game_level(&mut self, game_level: &GameLevel) {
+        self.game_level = Some(game_level.clone());
+    }
+    fn clear_game_level(&mut self) {
+        self.game_level = None;
+    }
+}
 #[derive(Default, Clone, Debug)]
-struct Toy {
+struct GameLevel {
     seconds: Option<Duration>,
     balls: i32,
     barriers: i32,
@@ -125,23 +142,24 @@ struct Toy {
     lifesavers: i32,
     cylinders: i32,
     fences: i32,
+    wind: Option<Vec3>,
     help: String,
 }
 #[derive(Resource)]
 struct Configuration {
-    levels: Vec<Toy>,
+    levels: Vec<GameLevel>,
 }
 impl Configuration {
     fn new() -> Self {
         Self{ levels: Vec::new() }
     }
 
-    fn add(&mut self, level: Toy) -> &mut Self {
+    fn add(&mut self, level: GameLevel) -> &mut Self {
         self.levels.push(level);
         self
     }
 
-    fn get_toys(&self, level: i32) -> &Toy {
+    fn get_game_level(&self, level: i32) -> &GameLevel {
         // Level is 1 origin, levels Vec is zero origin, so level-1)
         if level > self.levels.len() as i32 {
             // If beyond the end, just return the last toy level
@@ -353,88 +371,98 @@ fn setup_window(
 fn setup_configuration(
     mut configuration: ResMut<Configuration>,
 ) {
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         balls: 5,
         blocks: 1,
         fences: 4,
         help: "Use arrow keys to move the ball around and push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         balls: 5,
         fences: 3,
         blocks: 2,
         disks: 2,
         help: "Don't let the red ball fall off the front edge while pushing toys".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         fences: 1,
         blocks: 1,
         disks: 1,
         help: "Fewer balls available now and the levels are timed".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         blocks: 2,
         disks: 2,
         help: "Use space bar to bounce the ball".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 1,
         blocks: 2,
         help: "Use space bar to bounce the ball over the barrier".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
         blacks: 3,
         help: "Hit the top of the black disk to turn it white and\nget bonus points when you push it off the edge".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
+        seconds: Some(Duration::from_mins(5)),
+        balls: 3,
+        barriers: 2,
+        blacks: 2,
+        wind: Some(Vec3::new(0.2, 0.0, 0.0)),
+        help: "This time with a breeze out of the west".to_string(),
+        ..GameLevel::default()
+    });
+
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         dips: 2,
         help: "Put the ball in the dip to turn the piece white and\n get bonus points when you push it off the edge".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         targets: 1,
         help: "Hit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         lifesavers: 2,
         help: "Put the ball in the lifesaver to earn bonus points.".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(8)),
         balls: 3,
         barriers: 2,
@@ -444,10 +472,10 @@ fn setup_configuration(
         cylinders: 3,
         spikeys: 1,
         help: "Don't forget the transparent blocks".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
 
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(9)),
         balls: 3,
         barriers: 2,
@@ -458,9 +486,9 @@ fn setup_configuration(
         targets: 2,
         cylinders: 3,
         help: "More toys to push off the edge. Don't forget the toys on the scoreboard".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
-    configuration.add(Toy {
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(10)),
         balls: 3,
         barriers: 2,
@@ -473,19 +501,8 @@ fn setup_configuration(
         spikeys: 1,
         lifesavers: 2,
         help: "Lots of toys.".to_string(),
-        ..Toy::default()
+        ..GameLevel::default()
     });
-}
-fn toggle_wind(
-    mut force_query: Query<&mut ExternalForce>,
-) {
-    for mut force in force_query.iter_mut() {
-        if force.force.x > 0.0 {
-            force.force.x = 0.0;
-        } else {
-            force.force.x = 2.0;
-        }
-    }
 }
 fn clear_scoring_text(
     time: Res<Time>,
@@ -878,12 +895,13 @@ commands.spawn((
     ));
 }
 fn create_barriers(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     //    asset_server: AssetServer,
 ) {
+    let n = game_level.barriers;
     if n > 0 {
         // Barrier Left
         commands.spawn((
@@ -912,11 +930,12 @@ fn create_barriers(
     }
 }
 fn create_fences(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
+    let n = game_level.fences;
     if n == 1 || n == 3 || n == 4 {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
@@ -974,15 +993,60 @@ fn create_fences(
         ));
     }
 }
+fn make_external_force(game_level: &GameLevel) -> ExternalForce {
+    if game_level.wind.is_some() {
+        ExternalForce{
+            force: game_level.wind.unwrap(),
+            torque: Vec3::new(0.0, 0.0, 0.0),
+        }
+    } else {
+        ExternalForce::default()
+    }
+}
+fn create_ball(
+    game_level: &GameLevel,
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    let external_force = make_external_force(game_level);
+    // Spawn a Dynamic Bouncing Ball
+    commands.spawn((
+        CollisionGroups::new(Group::GROUP_1, Group::GROUP_1 | Group::GROUP_2 | Group::GROUP_3 | Group::GROUP_4),
+        BouncyBall{live: true},
+        RigidBody::Dynamic,
+        PointValue{value: -10},
+        ActiveEvents::COLLISION_EVENTS,
+        // Lower the Damping for a more advanced game
+        Damping {
+            linear_damping: 0.2,
+            angular_damping: 0.2,
+        },
+        ColliderMassProperties::Density(2.0),
+        //        Ccd::enabled(), // doesn't help sticky balls
+        Collider::ball(0.5),
+        // Adding restitution makes the ball bounce
+        Restitution::new(1.0),
+        //        GravityScale(2.0),
+        ExternalImpulse::default(),
+        external_force,
+        Transform::from_translation(random_location()),
+        Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
+        Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
+        MeshMaterial3d(materials.add(LIVE_BALL)),
+    ));
+}
+
 fn create_blocks(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     //    asset_server: AssetServer,
 ) {
+    let external_force = make_external_force(game_level);
     // Boxes
-    for _n in 0..n {
+    for _n in 0..game_level.blocks {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -997,6 +1061,7 @@ fn create_blocks(
             })),
 //            NotShadowCaster,
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 15 },
             // Lower the Damping for a more advanced game
             // Damping {
@@ -1005,18 +1070,17 @@ fn create_blocks(
             // },
             Collider::cuboid(0.5, 0.5, 0.5),
             Transform::from_translation(random_location()),
-            ExternalForce::default(),
         ));
     };
 }
 fn create_disks(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    //    asset_server: AssetServer,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.disks {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1026,6 +1090,7 @@ fn create_disks(
             Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
             MeshMaterial3d(materials.add(DISK_COLOR)),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 15 },
             // Lower the Damping for a more advanced game
             // Damping {
@@ -1034,20 +1099,18 @@ fn create_disks(
             // },
             Collider::cylinder(0.3, 0.75),
             Transform::from_translation(random_location()),
-            ExternalForce::default(),
         ));
     }
-
 }
 
 fn create_cones(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    //    asset_server: AssetServer,
 ){
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.cones {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: true },
@@ -1057,6 +1120,7 @@ fn create_cones(
             Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
             MeshMaterial3d(materials.add(CONE_COLOR)),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 15 },
             // Lower the Damping for a more advanced game
             // Damping {
@@ -1065,19 +1129,19 @@ fn create_cones(
             // },
             Collider::cone(1.0, 0.75),
             Transform::from_translation(random_location()),
-            ExternalForce::default(),
         ));
     }
 }
 
 fn create_blacks(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 //    asset_server: AssetServer,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.blacks {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1088,6 +1152,7 @@ fn create_blacks(
             Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
             MeshMaterial3d(materials.add(BLACK_DISK_COLOR)),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: -50 },
             // Lower the Damping for a more advanced game
             // Damping {
@@ -1096,7 +1161,6 @@ fn create_blacks(
             // },
             Collider::cylinder(0.3, 0.75),
             Transform::from_translation(random_location()),
-            ExternalForce::default(),
         )).with_children(|parent| {
             parent.spawn((
                 SensorChild {next_color: WHITE_DISK_COLOR },
@@ -1118,18 +1182,20 @@ fn create_blacks(
     }
 }
 fn create_dips(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     asset_server: &Res<AssetServer>,
 ){
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.dips {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             ExternalImpulse::default(),
+            external_force,
             Friction::new(0.1),
             Restitution::new(0.1),
             ColliderMassProperties::Density(0.0),
@@ -1164,11 +1230,12 @@ fn create_dips(
     }
 }
 fn create_bumpys (
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ){
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.bumpys {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1176,6 +1243,7 @@ fn create_bumpys (
             Friction::new(0.0),
             Restitution::new(0.1),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 5 },
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/bumpy.glb#collection"))),
             AsyncSceneCollider::default(),
@@ -1184,18 +1252,20 @@ fn create_bumpys (
     }
 }
 fn create_targets(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ){
-    if n > 0 {
+    let external_force = make_external_force(game_level);
+    if game_level.targets > 0 {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 35 },
             ExternalImpulse::default(), // For when this becomes dynamic
+            external_force,
             Friction::new(0.1),
             Restitution::new(0.1),
             Collider::cylinder(0.1, 0.5),
@@ -1204,13 +1274,14 @@ fn create_targets(
             Transform::from_xyz(-14.0, 3.0, 5.0).with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
         ));
     }
-    if n > 1 {
+    if game_level.targets > 1 {
     commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
             ExternalImpulse::default(), // For when this becomes dynamic
+            external_force,
             Friction::new(0.1),
             Restitution::new(0.1),
             Collider::cuboid(0.1, 1.0, 1.0),
@@ -1219,13 +1290,14 @@ fn create_targets(
             Transform::from_xyz(-14.0, 7.0, -5.0),
         ));
     }
-    if n > 2 {
+    if game_level.targets > 2 {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
             ExternalImpulse::default(), // For when this becomes dynamic
+            external_force,
             Friction::new(0.1),
             Restitution::new(0.1),
             Collider::cuboid(0.1, 1.0, 1.0),
@@ -1237,12 +1309,13 @@ fn create_targets(
 }
 
 fn create_ghosts(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.ghosts {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1257,6 +1330,7 @@ fn create_ghosts(
             })),
             NotShadowCaster,
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 20 },
             // Lower the Damping for a more advanced game
             // Damping {
@@ -1265,16 +1339,16 @@ fn create_ghosts(
             // },
             Collider::cuboid(0.5, 0.5, 0.5),
             Transform::from_translation(random_location()),
-            ExternalForce::default(),
         ));
     };
 }
 fn create_lifesavers (
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.lifesavers {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1282,6 +1356,7 @@ fn create_lifesavers (
             Friction::new(0.0),
             Restitution::new(0.1),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 10 },
             ColliderMassProperties::Density(0.50),
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
@@ -1300,11 +1375,12 @@ fn create_lifesavers (
     }
 }
 fn create_spikeys(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.spikeys {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1313,6 +1389,7 @@ fn create_spikeys(
             Restitution::new(0.1),
             ColliderMassProperties::Mass(0.25),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 25 },
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/spikey.glb#collection"))),
             AsyncSceneCollider::default(),
@@ -1321,11 +1398,12 @@ fn create_spikeys(
     }
 }
 fn create_cylinders(
-    n: i32,
+    game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
 ) {
-    for _n in 0..n {
+    let external_force = make_external_force(game_level);
+    for _n in 0..game_level.cylinders {
         commands.spawn((
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
             RigidBody::Dynamic,
@@ -1333,6 +1411,7 @@ fn create_cylinders(
             Friction::new(0.8),
             Restitution::new(0.1),
             ExternalImpulse::default(),
+            external_force,
             PointValue { value: 5 },
             WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cylinder.glb#collection"))),
             AsyncSceneCollider::default(),
@@ -1351,6 +1430,7 @@ fn handle_new_level(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut game_level_res: ResMut<GameLevelResource>,
     asset_server: Res<AssetServer>,
     fence_query: Query<Entity, With<Fence>>,
     clock_query: Query<Entity, With<ClockBoard>>,
@@ -1358,6 +1438,7 @@ fn handle_new_level(
 ) {
     for _event in messages.read() {
         if scoreboard.level < 1 {
+            game_level_res.clear_game_level();
             commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
             return;
         }
@@ -1385,29 +1466,29 @@ fn handle_new_level(
         commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
         //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage {});
-        let toys = configuration.get_toys(scoreboard.level);
+        let game_level = configuration.get_game_level(scoreboard.level);
+        game_level_res.set_game_level(game_level);
 //        println!("Level {}, Toys {:?}", scoreboard.level, toys);
-        scoreboard.set_balls_count(toys.balls);
-        create_fences(toys.fences, &mut commands, &mut meshes, &mut materials);
-        create_blocks(toys.blocks, &mut commands, &mut meshes, &mut materials);
-        create_barriers(toys.barriers, &mut commands, &mut meshes, &mut materials);
-        create_disks(toys.disks, &mut commands, &mut meshes, &mut materials);
-        create_cones(toys.cones, &mut commands, &mut meshes, &mut materials);
-        create_dips(toys.dips, &mut commands, &mut meshes, &mut materials, &asset_server);
-        create_blacks(toys.blacks, &mut commands, &mut meshes, &mut materials);
-        create_bumpys(toys.bumpys, &mut commands, &asset_server);
-        create_spikeys(toys.spikeys, &mut commands, &asset_server);
-        create_targets(toys.targets, &mut commands, &mut meshes, &mut materials);
-        create_ghosts(toys.ghosts, &mut commands, &mut meshes, &mut materials);
-        create_lifesavers(toys.lifesavers, &mut commands, &asset_server);
-        create_cylinders(toys.cylinders, &mut commands, &asset_server);
-        if toys.seconds != None {
+        create_fences(game_level, &mut commands, &mut meshes, &mut materials);
+        create_blocks(game_level, &mut commands, &mut meshes, &mut materials);
+        create_barriers(game_level, &mut commands, &mut meshes, &mut materials);
+        create_disks(game_level, &mut commands, &mut meshes, &mut materials);
+        create_cones(game_level, &mut commands, &mut meshes, &mut materials);
+        create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server);
+        create_blacks(game_level, &mut commands, &mut meshes, &mut materials);
+        create_bumpys(game_level, &mut commands, &asset_server);
+        create_spikeys(game_level, &mut commands, &asset_server);
+        create_targets(game_level, &mut commands, &mut meshes, &mut materials);
+        create_ghosts(game_level, &mut commands, &mut meshes, &mut materials);
+        create_lifesavers(game_level, &mut commands, &asset_server);
+        create_cylinders(game_level, &mut commands, &asset_server);
+        scoreboard.set_balls_count(game_level.balls);
+        if game_level.seconds != None {
             create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server);
             // Start the clock
-            countdown_board.start(toys.seconds);
+            countdown_board.start(game_level.seconds);
         }
-
-        commands.write_message( HelpMessage{help_type: HelpType::Next, text: toys.help.clone()});
+        commands.write_message( HelpMessage{help_type: HelpType::Next, text: game_level.help.clone()});
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
 //        println!("Done creating toys");
     }
@@ -1450,18 +1531,21 @@ fn update_dead_balls (
                 commands.entity(entity).despawn();
                 println!("Dead ball despawned");
             } else {
-                transform.scale -= 1.0 * time.delta_secs();
+                transform.scale -= 1.8 * time.delta_secs();
             }
         }
     }
 
 }
+
 fn drop_a_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut query: Query<(&mut BouncyBall), With<BouncyBall>>,
+    query: Query<Entity, With<BouncyBall>>,
     mut scoreboard: ResMut<Scoreboard>,
+    game_level_res: Res<GameLevelResource>,
+
 ) {
     if scoreboard.balls == 0 {
         if scoreboard.running {
@@ -1470,37 +1554,17 @@ fn drop_a_ball(
         commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
         return;
     }
-    // Update scoreboard
-    scoreboard.use_a_ball();
-    // Clean up previous balls, just change it to dead and we clean it up once it has shrunk to nothing
-    for (mut ball) in query.iter_mut() {
-        ball.live = false;
+    // If another ball on the table, just quietly ignore the request.
+    for (_ball) in query.iter() {
+        return;
     }
-    // Spawn a Dynamic Bouncing Ball
-    commands.spawn((
-        CollisionGroups::new(Group::GROUP_1, Group::GROUP_1 | Group::GROUP_2 | Group::GROUP_3 | Group::GROUP_4),
-        BouncyBall{live: true},
-        RigidBody::Dynamic,
-        PointValue{value: -10},
-        ActiveEvents::COLLISION_EVENTS,
-        // Lower the Damping for a more advanced game
-        Damping {
-            linear_damping: 0.2,
-            angular_damping: 0.2,
-        },
-        ColliderMassProperties::Density(2.0),
-        //        Ccd::enabled(), // doesn't help sticky balls
-        Collider::ball(0.5),
-        // Adding restitution makes the ball bounce
-        Restitution::new(1.0),
-        //        GravityScale(2.0),
-        ExternalImpulse::default(),
-        Transform::from_translation(random_location()),
-        Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
-        ExternalForce::default(),
-        Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
-        MeshMaterial3d(materials.add(LIVE_BALL)),
-    ));
+    if game_level_res.game_level.is_some() {
+        let game_level = game_level_res.game_level.as_ref().unwrap();
+        // Update scoreboard
+        scoreboard.use_a_ball();
+        create_ball(game_level, &mut commands, &mut meshes, &mut materials);
+
+    }
 }
 
 fn impulse(
@@ -1753,7 +1817,7 @@ fn setup_game_board(
         Transform {
             translation: Vec3::new(0., 5., -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.),
-            scale: Vec3::splat(4.0),
+            scale: Vec3::new(4.0, 4.0, 2.0),
         },
     ));
     commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the G key to start a new game".to_string()});
