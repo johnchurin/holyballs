@@ -7,7 +7,8 @@ use std::f32::consts::{FRAC_PI_2};
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::log::Level;
-use bevy::window::{PrimaryWindow};
+use bevy::window::{CursorOptions, PrimaryWindow, WindowMode};
+use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
@@ -36,14 +37,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Initialize the Rapier physics engine and the debug renderer
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-//        .add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(FontMeshPlugin::<StandardMaterial>::default())
-        // .add_plugins(Text3dPlugin{
-        //     default_atlas_dimension: (1024, 1024),
-        //     load_system_fonts: true,
-        //     ..Default::default()
-        // })
-//        .add_plugins(RichText3dPlugin) // Must be registered!
         .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .add_systems(Startup, setup_window)
@@ -71,7 +65,6 @@ fn main() {
             start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
             start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
             restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
-            //            show_fences.run_if(input_just_pressed(KeyCode::KeyF)),
             update_scoreboard.run_if(resource_changed::<Scoreboard>),
             update_countdown_face.run_if(resource_changed::<CountdownBoard>),
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
@@ -79,9 +72,10 @@ fn main() {
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
-//            update_dead_balls,
         ))
         .add_systems(Update, (
+            handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
+            handle_mouse_move,
             handle_point_value_message,
             handle_activate_game,
             handle_impulse_message,
@@ -354,12 +348,22 @@ struct CameraController {
 
 fn setup_window(
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut cursor: Single<&mut CursorOptions>,
 ) {
     for mut window in &mut windows {
-        window.set_maximized(true);
-//        window.mode = WindowMode::Fullscreen{ 0: MonitorSelection::Current, 1: VideoModeSelection::Current };
+//        window.set_maximized(true);
+//        window.mode = WindowMode::Windowed;
+        window.mode = WindowMode::BorderlessFullscreen{ 0: MonitorSelection::Current };
         window.title = "Holy Balls".into();
+        cursor.visible = false;
     }
+}
+
+fn handle_exit(
+    mut commands: Commands,
+
+) {
+    commands.write_message(AppExit::error());
 }
 // fn show_fences(
 //     mut query: Query<&mut Visibility, With<Fence>>,
@@ -375,7 +379,7 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "Use arrow keys to move the ball around and push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
+        help: "Use arrow keys or the mouse to move the ball around and push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
         ..GameLevel::default()
     });
 
@@ -558,7 +562,23 @@ fn update_countdown(
         }
     }
 }
+fn handle_mouse_move(
+    mut messages: ResMut<Messages<MouseMotion>>,
+    mut commands: Commands,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    mut balls: Query<(&mut ExternalImpulse, &BouncyBall), With<BouncyBall>>,
+//    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    for event in messages.drain() {
+        if mouse_buttons.pressed(MouseButton::Left) {
+            for (mut impulse, ball) in balls.iter_mut() {
+//                info!("Mouse moved: x = {}, y = {}", event.delta.x, event.delta.y);
+                impulse.impulse = Vec3::new(event.delta.x*0.1, 0.0, event.delta.y*0.1);
+            }
+        }
+    }
 
+}
 fn handle_sensor_events(
     mut messages: ResMut<Messages<CollisionEvent>>,
     ball_query: Query<(Entity, &BouncyBall), With<BouncyBall>>,
