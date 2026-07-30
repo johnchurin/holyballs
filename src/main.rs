@@ -361,17 +361,9 @@ fn setup_window(
 
 fn handle_exit(
     mut commands: Commands,
-
 ) {
-    commands.write_message(AppExit::error());
+    commands.write_message(AppExit::Success);
 }
-// fn show_fences(
-//     mut query: Query<&mut Visibility, With<Fence>>,
-// ) {
-//     for mut visibility in query.iter_mut() {
-//         visibility.toggle_visible_hidden()
-//     }
-// }
 fn setup_configuration(
     mut configuration: ResMut<Configuration>,
 ) {
@@ -379,7 +371,9 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "Use arrow keys or the mouse to move the ball around and push the toy off the edge\nThe fence will keep the ball from going over the edge".to_string(),
+        help: "Objective: Use a ball to push toys off the table.\n\
+        Press Enter to get your first ball.\n\
+        Use arrow keys or the mouse to move the ball.".to_string(),
         ..GameLevel::default()
     });
 
@@ -388,7 +382,7 @@ fn setup_configuration(
         fences: 3,
         blocks: 2,
         disks: 2,
-        help: "Don't let the red ball fall off the front edge while pushing toys".to_string(),
+        help: "No fence on the front edge so don't let the red ball fall off while pushing toys".to_string(),
         ..GameLevel::default()
     });
 
@@ -453,7 +447,7 @@ fn setup_configuration(
         balls: 3,
         barriers: 2,
         targets: 1,
-        help: "Hit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
+        help: "Balls to the walls.\nHit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
         ..GameLevel::default()
     });
 
@@ -682,7 +676,7 @@ fn score_fallen_entities(
         println!("{} toys found", scoreboard.toys);
         scoreboard.hit(100);
         commands.write_message( HelpMessage{help_type: HelpType::Score,
-                text: "100 points for clearing this level".to_string()});
+                text: "100 bonus points for clearing this level".to_string()});
         let text = format!("Press N to start level {}", scoreboard.level+1);
         commands.write_message( HelpMessage{help_type: HelpType::Next, text});
         commands.write_message(SoundMessage{sound_type: SoundType::FinishLevel});
