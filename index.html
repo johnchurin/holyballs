@@ -1,34 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="copy-dir" href="assets" />
-    <title>Holyballs</title>
-
-    <!-- Links Trunk to holyballs -->
-    <link rel="rust" data-bin="holyballs" />
-
-    <style>
-        /* Centers the Bevy canvas and removes scrolling */
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #111;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        /* Prevents visual stuttering when canvas focuses */
-        canvas {
-            outline: none;
-        }
-    </style>
+    <meta charset="utf-8">
+    <title>Wasm-Bindgen Prototype</title>
 </head>
 <body>
-<!-- Bevy will automatically generate and inject its <canvas> here -->
+<h1>Check Console for WebAssembly Output</h1>
+
+<script type="module">
+    // Import the initialization function and your exported Rust function
+    import init, { greet } from "./pkg/holyballs.js";
+
+    async function run() {
+        // Initialize the WebAssembly module
+        await init();
+
+        // Call your Rust function exposed via wasm-bindgen
+        greet("WebAssembly");
+    }
+
+    run();
+</script>
 </body>
 </html>

@@ -65,7 +65,6 @@ jobs:
         run: |
           wasm-bindgen --target web \
             --out-dir ./dist \
-            --out-name game \
             target/wasm32-unknown-unknown/release/holyballs.wasm
 
       - name: Upload Build Artifacts
