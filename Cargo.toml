@@ -10,6 +10,7 @@ bevy_rapier3d = { version = "*", features = [ "simd-stable", "debug-render-3d" ]
 rand = "0.10.2"
 bevy_fontmesh = {version="0.6.0"}
 #bevy_rich_text3d = {path="../bevy_rich_text3d"}
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
 
 [profile.dev.package."*"]
 opt-level = 3
