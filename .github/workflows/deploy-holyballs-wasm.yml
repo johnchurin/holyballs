@@ -1,4 +1,4 @@
-name: Deploy Bevy Web App
+name: Deploy Holyballs Web App
 
 on:
   push:
