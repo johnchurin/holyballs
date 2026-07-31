@@ -1,0 +1,45 @@
+name: Deploy Bevy Web App
+
+on:
+  push:
+    branches:
+      - main # Triggers the build whenever you push to main
+
+# Allow the action to modify pages and deployment states
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+
+      - name: Download and Install Trunk
+        run: |
+          wget -qO- https://github.com | tar -xzf-
+          sudo mv trunk /usr/local/bin/
+
+      - name: Build Web App via Trunk
+        run: trunk build --release
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist # Trunk outputs web assets to the 'dist' directory
+          branch: gh-pages # The branch where your built assets live

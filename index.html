@@ -1,13 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <title>My Bevy Web Game</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="copy-dir" href="assets" />
+    <title>Holyballs</title>
+
+    <!-- Links Trunk to your Rust application -->
+    <link rel="rust" data-bin="holyballs" />
+
+    <style>
+        /* Centers the Bevy canvas and removes scrolling */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* Prevents visual stuttering when canvas focuses */
+        canvas {
+            outline: none;
+        }
+    </style>
 </head>
 <body>
-<script>
-        location.replace("https://johnchurin.github.io/github.io");
-</script>
-
+<!-- Bevy will automatically generate and inject its <canvas> here -->
 </body>
 </html>
