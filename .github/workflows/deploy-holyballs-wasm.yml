@@ -1,5 +1,5 @@
-name: Deploy Holyballs to GitHub Pages
-run-name: Deploy-holyballs
+name: Deploy Holyballs
+run-name: Deploy-holyballs-to-wasm
 on:
   push:
     branches: [ master ]

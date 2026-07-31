@@ -6,6 +6,8 @@
     <script type="module">
         // Import the initialization function and your exported Rust function
         import init from "./holyballs.js";
+        const button = document.getElementById("play");
+        button.addEventListener("click", startGame);
 
         async function startGame() {
             // Initialize the WebAssembly module
@@ -13,10 +15,20 @@
             // Call a Rust function exposed via wasm-bindgen, here
         }
     </script>
+    <style>
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+    </style>
 </head>
 <body>
-<h2>Welcome the <b>Holy Balls</b> game</h2>
-<h5>Keyboard keys:</h5>
-<button onclick="startGame()">Play Now</button>
+<h2>Welcome to the <b>Holy Balls</b> game</h2>
+<button id="play">Play Now</button>
+<h3>Things to know before starting the game</h3>
+<h5>Keyboard keys</h5>
+
 </body>
 </html>
