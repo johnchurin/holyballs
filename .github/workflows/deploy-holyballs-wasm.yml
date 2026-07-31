@@ -29,6 +29,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libudev-dev pkg-config
 
+      - name: download the wasm configuration
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Download and Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
