@@ -13,3 +13,6 @@ bevy_fontmesh = {version="0.6.0"}
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
