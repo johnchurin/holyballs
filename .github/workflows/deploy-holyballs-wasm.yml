@@ -2,8 +2,7 @@ name: Deploy Holyballs Web App
 
 on:
   push:
-    branches:
-      - main # Triggers the build whenever you push to main
+    branches: [ "master" ]
 
 # Allow the action to modify pages and deployment states
 permissions:
