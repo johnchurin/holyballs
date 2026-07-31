@@ -39,9 +39,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libudev-dev
 
-      - name: Install wasm-bindgen-cli
+      - name: Install WASM tooling
         run: |
-          cargo install wasm-bindgen-cli
+          cargo install --force wasm-bindgen-cli
+          mkdir ./binaryen
+          wget -qO- https://github.com/WebAssembly/binaryen/releases/download/version_126/binaryen-version_126-arm64-macos.tar.gz | tar xvz --strip-components 1 -C ./binaryen binaryen-version_126
 
       - name: Build Bevy Game for WASM
         run: |
