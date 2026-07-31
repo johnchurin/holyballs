@@ -1,49 +1,72 @@
-name: Deploy Holyballs Web App
+name: Deploy Bevy to GitHub Pages
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ] # Change to your default branch
 
-# Allow the action to modify pages and deployment states
+# Grant permissions required to deploy to GitHub Pages
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Rust Cache
+      - name: Optimize Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Linux Dependencies
+      - name: Install Alsa and Udev dependencies (Required for Bevy)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+          sudo apt-get install -y libasound2-dev libudev-dev
 
-      - name: download the wasm configuration
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install wasm-bindgen-cli
+        run: |
+          cargo install wasm-bindgen-cli
 
-      - name: Download and Install Trunk
-        uses: jetli/trunk-action@v0.5.0
+      - name: Build Bevy Game for WASM
+        run: |
+          cargo build --release --target wasm32-unknown-unknown
+
+      - name: Create Distribution Directory
+        run: |
+          mkdir dist
+          # Copy your game assets into the distribution directory if they exist
+          if [ -d "assets" ]; then cp -r assets dist/; fi
+          # Copy your index.html entrypoint
+          cp index.html dist/
+
+      - name: Generate WASM Bindings
+        run: |
+          wasm-bindgen --target web \
+            --out-dir ./dist \
+            --out-name game \
+            target/wasm32-unknown-unknown/release/holyballs.wasm
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-pages-artifact@v3
         with:
-          # Optional: specify a version (defaults to latest)
-          version: 'latest'
-
-
-      - name: Build Web App via Trunk
-        run: trunk build --release
+          path: ./dist
 
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: dist # Trunk outputs web assets to the 'dist' directory
-          branch: gh-pages # The branch where your built assets live
+        id: deployment
+        uses: actions/deploy-pages@v4
