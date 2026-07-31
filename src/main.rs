@@ -1,4 +1,5 @@
-
+// Suppress console output
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
@@ -382,7 +383,8 @@ fn setup_configuration(
         fences: 3,
         blocks: 2,
         disks: 2,
-        help: "No fence on the front edge so don't let the red ball fall off while pushing toys".to_string(),
+        help: "More toys to push off the edge.\n\
+        Caution: No fence on the front edge.".to_string(),
         ..GameLevel::default()
     });
 
@@ -392,16 +394,8 @@ fn setup_configuration(
         fences: 1,
         blocks: 1,
         disks: 1,
-        help: "Fewer balls available now and the levels are timed".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
-        balls: 3,
-        blocks: 2,
-        disks: 2,
-        help: "Use space bar to bounce the ball".to_string(),
+        help: "Fewer balls available now\n\
+        and the levels are timed, now.".to_string(),
         ..GameLevel::default()
     });
 
@@ -410,7 +404,7 @@ fn setup_configuration(
         balls: 3,
         barriers: 1,
         blocks: 2,
-        help: "Use space bar to bounce the ball over the barrier".to_string(),
+        help: "Use the space bar to bounce the ball over the barrier".to_string(),
         ..GameLevel::default()
     });
 
@@ -418,8 +412,9 @@ fn setup_configuration(
         seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
-        blacks: 3,
-        help: "Hit the top of the black disk to turn it white and\nget bonus points when you push it off the edge".to_string(),
+        blacks: 1,
+        help: "Hit the top of the black disk to turn it white and\n\
+        get bonus points when you push it off the edge".to_string(),
         ..GameLevel::default()
     });
 
@@ -427,27 +422,38 @@ fn setup_configuration(
         seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
-        blacks: 2,
-        wind: Some(Vec3::new(0.2, 0.0, 0.0)),
+        blocks: 2,
+        wind: Some(Vec3::new(0.3, 0.0, 0.0)),
         help: "This time with a breeze out of the west".to_string(),
         ..GameLevel::default()
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
+        seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
-        dips: 2,
-        help: "Put the ball in the dip to turn the piece white and\n get bonus points when you push it off the edge".to_string(),
+        targets: 1,
+        help: "Balls to the walls: Hit the disk on the scoreboard.\n\
+        You may have to push it off the edge, too, if it lands on the table.\n\
+        Only three balls for this level.".to_string(),
         ..GameLevel::default()
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
+        seconds: Some(Duration::from_mins(4)),
         balls: 3,
         barriers: 2,
-        targets: 1,
-        help: "Balls to the walls.\nHit the disk on the scoreboard. You may have to push it off the edge, too.".to_string(),
+        ghosts: 4,
+        help: "Some ghost blocks.".to_string(),
+        ..GameLevel::default()
+    });
+
+    configuration.add(GameLevel {
+        seconds: Some(Duration::from_mins(5)),
+        balls: 3,
+        barriers: 2,
+        spikeys: 2,
+        help: "Spikey balls are a bit of a challenge to get over the edge.".to_string(),
         ..GameLevel::default()
     });
 
@@ -461,29 +467,23 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(8)),
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
-        blocks: 15,
-        ghosts: 4,
-        disks: 5,
-        cylinders: 3,
-        spikeys: 1,
-        help: "Don't forget the transparent blocks".to_string(),
+        dips: 2,
+        help: "Put the ball in the dip to turn the piece white to\n\
+        get bonus points when you push it off the edge".to_string(),
         ..GameLevel::default()
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(9)),
+        seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
         blocks: 6,
         ghosts: 2,
-        blacks: 2,
-        dips: 2,
-        targets: 2,
         cylinders: 3,
-        help: "More toys to push off the edge. Don't forget the toys on the scoreboard".to_string(),
+        help: "More toys to push off the edge.".to_string(),
         ..GameLevel::default()
     });
     configuration.add(GameLevel {

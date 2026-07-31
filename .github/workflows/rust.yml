@@ -22,3 +22,5 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Build Release
         run: cargo build --release
+      - name: Copy assets
+        run: cp -r assets/. target/release/
