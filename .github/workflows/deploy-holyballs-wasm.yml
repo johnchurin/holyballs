@@ -29,10 +29,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libudev-dev pkg-config
 
-      - name: Download and Install Trunk
-        run: |
-          wget -qO- https://github.com | tar -xzf-
-          sudo mv trunk /usr/local/bin/
+      - name: Install Trunk
+        uses: mbround18/trunk-rs@v0.0.1
 
       - name: Build Web App via Trunk
         run: trunk build --release
