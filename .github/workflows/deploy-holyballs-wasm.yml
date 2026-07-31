@@ -1,5 +1,5 @@
-name: Deploy holyballs to GitHub Pages
-
+name: Deploy Holyballs to GitHub Pages
+run-name: Deply-holyballs
 on:
   push:
     branches: [ master ]
