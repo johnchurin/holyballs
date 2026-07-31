@@ -1,8 +1,8 @@
-name: Deploy Bevy to GitHub Pages
+name: Deploy holyballs to GitHub Pages
 
 on:
   push:
-    branches: [ master ] # Change to your default branch
+    branches: [ master ]
 
 # Grant permissions required to deploy to GitHub Pages
 permissions:
