@@ -21,14 +21,138 @@
             height: 100% !important;
             display: block;
         }
+        /* Base Reset & Typography */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7f6;
+            padding: 2rem;
+        }
 
+        /* Navigation Bar */
+        header {
+            background-color: #2c3e50;
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .logo {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .nav-links {
+            list-style: none;
+            display: flex;
+            gap: 1.5rem;
+        }
+        .nav-links a {
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #fff;
+        }
+
+        /* Hero Banner Section */
+        .hero {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: #fff;
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        .cta-btn {
+            background-color: #e74c3c;
+            color: #fff;
+            padding: 0.75rem 2rem;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .cta-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Features Section */
+        .features {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 100fr));
+            gap: 2rem;
+        }
+        .card {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #2c3e50;
+            color: #fff;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 4rem;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
+<header>
+    <nav>
+        <a href="http://sodacan.io" class="logo"><img src="images/sodacan.png" alt="Sodacan">&nbsp Sodacan.io</a>
+        <ul class="nav-links">
+            <li><a href="#">Home</a></li>
+            <li><a target="_blank" href="https://github.com/johnchurin/holyballs">Github</a></li>
+            <li><a href="#">About</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
 <h2>Welcome to the <b>Holy Balls</b> game</h2>
-<button id="play">Play Now</button>
+<button id="play" class="cta-btn">Play Now</button>
 <h3>Things to know before starting the game</h3>
+<h5>Hardware Requirements</h5>
+<p>Many true 3d games like Holyballs, can require a beefy GPU but this </p>
 <h5>Keyboard keys</h5>
+</main>
+<footer>
+    <p>&copy; 2026 Sodacan.io and holyballs.games. All rights reserved.</p>
+</footer>
 
 </body>
 </html>
