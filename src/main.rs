@@ -564,12 +564,12 @@ fn handle_mouse_move(
 //    window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
     for event in messages.drain() {
-        if mouse_buttons.pressed(MouseButton::Left) {
+//        if mouse_buttons.pressed(MouseButton::Left) {
             for (mut impulse, ball) in balls.iter_mut() {
 //                info!("Mouse moved: x = {}, y = {}", event.delta.x, event.delta.y);
                 impulse.impulse = Vec3::new(event.delta.x*0.1, 0.0, event.delta.y*0.1);
             }
-        }
+//        }
     }
 
 }
