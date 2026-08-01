@@ -8,7 +8,7 @@ use std::f32::consts::{FRAC_PI_2};
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::log::Level;
-use bevy::window::{CursorOptions, PrimaryWindow, WindowMode};
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
@@ -348,16 +348,17 @@ struct CameraController {
 }
 
 fn setup_window(
-    mut windows: Query<&mut Window, With<PrimaryWindow>>,
-    mut cursor: Single<&mut CursorOptions>,
+    mut win_query: Query<&mut Window, With<PrimaryWindow>>,
+    mut co_query: Query<&mut CursorOptions>,
 ) {
-    for mut window in &mut windows {
+    let mut win = win_query.single_mut().unwrap();
 //        window.set_maximized(true);
 //        window.mode = WindowMode::Windowed;
-        window.mode = WindowMode::BorderlessFullscreen{ 0: MonitorSelection::Current };
-        window.title = "Holy Balls".into();
-        cursor.visible = false;
-    }
+    win.mode = WindowMode::BorderlessFullscreen{ 0: MonitorSelection::Current };
+    win.title = "Holy Balls".into();
+    let mut co = co_query.single_mut().unwrap();
+    co.visible = false;
+    co.grab_mode = CursorGrabMode::Locked;
 }
 
 fn handle_exit(
