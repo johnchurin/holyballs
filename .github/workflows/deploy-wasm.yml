@@ -60,6 +60,7 @@ jobs:
           if [ -d "assets" ]; then cp -r assets dist/; fi
           # Copy your index.html entrypoint
           cp index.html dist/
+          cp -r images dist/
 
       - name: Generate WASM Bindings
         run: |
