@@ -61,6 +61,7 @@ jobs:
           # Copy your index.html entrypoint
           cp index.html dist/
           cp -r images dist/
+          cp favicon.ico dist/
 
       - name: Generate WASM Bindings
         run: |
