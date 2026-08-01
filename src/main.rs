@@ -688,6 +688,8 @@ fn score_fallen_entities(
         if transform.translation.y < -15.0 {
             commands.entity(entity).despawn();
             println!("Ball despawned {} points", point_value.value);
+            commands.write_message( HelpMessage{help_type: HelpType::Score,
+                text: format!("Ball despawned {} points, scoreboard running: {}", point_value.value,scoreboard.running)});
             if scoreboard.running {
                 scoreboard.hit(point_value.value);
                 if point_value.value != 0 {
