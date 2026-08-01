@@ -53,6 +53,7 @@ fn main() {
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
+            impulse.run_if(input_just_pressed(MouseButton::Left)),
             impulse.run_if(input_just_pressed(KeyCode::Space)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad5)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -1587,6 +1588,7 @@ fn drop_a_ball(
 fn impulse(
     mut balls: Query<(&mut ExternalImpulse, &BouncyBall), With<BouncyBall>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
 ) {
     // Just interested in the live ball
@@ -1597,6 +1599,9 @@ fn impulse(
     }
     for (mut impulse, ball) in balls {
         if ball.live  {
+            if mouse.just_pressed(MouseButton::Left) {
+                impulse.impulse = Vec3::new(0.0, BUMP*2.0, 0.0);
+            }
             // See which key was pressed
             for key in keyboard_input.get_just_pressed() {
                 match key {
