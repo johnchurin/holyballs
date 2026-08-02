@@ -3,16 +3,19 @@
 <head>
     <meta charset="utf-8">
     <title>Holyballs by sodacan.io</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <script type="module">
         // Import the initialization function and your exported Rust function
-        import init from "./holyballs.js";
+       import init from "./holyballs.js";
         const button = document.getElementById("play");
         button.addEventListener("click", startGame);
 
         async function startGame() {
-            // Initialize the WebAssembly module
-            await init();
+            console.log("start game");
+            const button = document.getElementById('play');
+            button.innerHTML = "<i class='fa fa-spinner fa-spin'></i>Starting Game";
+           await init();
             // Call a Rust function exposed via wasm-bindgen, here
         }
     </script>
@@ -87,16 +90,24 @@
             margin-bottom: 2rem;
             opacity: 0.9;
         }
-        .cta-btn {
+        .play-button {
             background-color: #e74c3c;
             color: #fff;
-            padding: 0.75rem 2rem;
+            padding: 12px 24px;
             text-decoration: none;
             border-radius: 5px;
             font-weight: bold;
             transition: background 0.3s;
+            position: relative;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
-        .cta-btn:hover {
+        .play-button:hover {
             background-color: #c0392b;
         }
 
@@ -145,7 +156,9 @@
 </header>
 <main>
 <h2>Welcome to the <b>Holy Balls</b> game</h2>
-<button id="play" class="cta-btn">Play Now</button>
+<button id="play" class="play-button">
+    Play Now
+</button>
 <h3>Objective</h3>
     <p>Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table, you lose points. </p>
     <p>You don't control the ball directly but rather apply invisible forces to make the ball move.
