@@ -7,17 +7,17 @@
     <link rel="icon" href="/site/favicon.icon.ico" sizes="any">
     <script type="module">
         // Import the initialization function and your exported Rust function
-       import init, { exit_game, start, add_numbers } from "./holyballs.js";
+       import init, { exit_game, start } from "./holyballs.js";
         const button = document.getElementById("play");
         button.addEventListener("click", startGame);
+
         async function startGame() {
             const container = document.getElementById("fullscreenContainer");
             const closeBtn = document.getElementById("closeBtn");
+            const gameCanvas = document.getElementById("game_canvas");
             closeBtn.onclick = () => {
-                if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                }
                 exit_game();
+                console.log("Exiting Game");
             };
             container.requestFullscreen().catch(err => {
                 console.error("Error attempting to enable fullscreen:", err);
@@ -25,12 +25,11 @@
             console.log("start game");
             const button = document.getElementById('play');
             button.innerHTML = "<i class='fa fa-spinner fa-spin'></i>Starting Game";
-           await init();
-
-            let r = add_numbers(3,4);
-//            start_canvas();
-            console.log("Result from Rust:",r);
+            await init();
+            container.style.display = "block";
             start();
+            console.log("Return from game");
+
             // Call a Rust function exposed via wasm-bindgen, here
         }
     </script>
@@ -157,8 +156,10 @@
         }
         /* Container styles */
         #fullscreenContainer {
+            display: none;
             background-color: #ffffff;
             padding: 10px;
+
         }
 
         /* Fixes button placement specifically when container enters fullscreen mode */
@@ -187,7 +188,7 @@
 <body>
 <div id="fullscreenContainer">
     <canvas id="game-canvas"></canvas>
-    <button id="closeBtn" class="hidden">&times; End Game</button>
+    <button id="closeBtn" class="hidden">&times; Exit Game</button>
 </div>
 <header>
     <nav>
@@ -212,7 +213,8 @@
         while allowing toys to fall through it. And the levels are not timed.</p>
     <p>As you advance to higher levels, there are more challenges: More and different toys.
     Wind will be introduced on some levels. Higher levels are timed.</p>
-    <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls.</p>
+    <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls
+        by hitting them with the red ball.</p>
 <h3>Things to know before starting the game</h3>
 <h5>Hardware Requirements</h5>
 <p>Many 3d games require a beefy GPU. However, the live 3d Holy Balls game uses relatively simple toy patterns
@@ -220,12 +222,13 @@
     hardware such as laptops. Doesn't work on iPhone, yet.
 </p>
 <h5>User actions</h5>
-    <p>X key to exit the game.</p>
-    <p>G key to start a new game.</p>
-    <p>N key to start a new level. If the level is timed, this starts the timer.</p>
-    <p>Enter key to drop a new ball on the table.</p>
-    <p>Mouse or arrow keys or 4, 8, 6, 2 on the keypad to push the ball around.</p>
-    <p>Space bar or left mouse to bounce the ball up.</p>
+    <p>press the X key or click the Exit Game button to exit the game.</p>
+    <p>Press the G key to start a new game.</p>
+    <p>Press the N key to start the next level. If the level is timed, the timer starts now.</p>
+    <p>Use the <b>Enter</b> key when you are ready to drop a new ball on the table.</p>
+    <p>Arrow keys or 4, 8, 6, 2 on the keypad to push the ball around.</p>
+    <p>You can also push the ball around by holding down the left mouse button.</p>
+    <p>Use the Space Bar or keypad 5 to bounce the ball.</p>
 </main>
 <footer>
     <p>&copy; 2026 Sodacan.io and holyballs.games. All rights reserved.</p>

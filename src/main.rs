@@ -15,6 +15,10 @@ use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
 use wasm_bindgen::prelude::wasm_bindgen;
 
+#[wasm_bindgen(module = "/site/game.js")]
+extern "C" {
+    fn game_ended();
+}
 const BUMP: f32 = 2.5;
 
 const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
@@ -90,6 +94,7 @@ pub fn start() {
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
+            wait_for_exit,
         ))
         .add_systems(Update, (
             handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
@@ -371,13 +376,32 @@ fn setup_window(
     co.grab_mode = CursorGrabMode::Locked;
 }
 
+static mut EXIT_NOW: bool = false;
 #[wasm_bindgen]
 pub fn exit_game() {
-
+    unsafe {
+        EXIT_NOW = true;
+    }
+    #[cfg(target_arch = "wasm32")]
+    game_ended();
+}
+fn wait_for_exit(
+    mut commands: Commands,
+) {
+    unsafe {
+        if EXIT_NOW {
+//            commands.write_message(SoundMessage { sound_type: SoundType::Lose });
+            commands.write_message(AppExit::Success);
+            EXIT_NOW = false;
+        }
+    }
 }
 fn handle_exit(
     mut commands: Commands,
-) {
+)
+{
+    #[cfg(target_arch = "wasm32")]
+    game_ended();
     commands.write_message(AppExit::Success);
 }
 fn setup_configuration(
