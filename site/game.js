@@ -7,4 +7,5 @@ export function game_ended() {
     const button = document.getElementById('play');
     button.innerHTML = "Play Again";
     container.style.display = "none";
+    button.disabled = false;
 }

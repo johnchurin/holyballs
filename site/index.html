@@ -7,14 +7,16 @@
     <link rel="icon" href="/site/favicon.icon.ico" sizes="any">
     <script type="module">
         // Import the initialization function and your exported Rust function
-       import init, { exit_game, start } from "./holyballs.js";
+        import init, { exit_game, start } from "./holyballs.js";
         const button = document.getElementById("play");
         button.addEventListener("click", startGame);
 
         async function startGame() {
             const container = document.getElementById("fullscreenContainer");
             const closeBtn = document.getElementById("closeBtn");
-            const gameCanvas = document.getElementById("game_canvas");
+            const button1 = document.getElementById("play");
+//            const gameCanvas = document.getElementById("game_canvas");
+            button1.disabled = true;
             closeBtn.onclick = () => {
                 exit_game();
                 console.log("Exiting Game");

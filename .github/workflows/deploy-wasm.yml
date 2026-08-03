@@ -56,7 +56,7 @@ jobs:
       - name: Create Distribution Directory
         run: |
           mkdir dist
-          # Copy your game assets into the distribution directory if they exist
+          # Copy your game assets into the distribution directory
           cp site/index.html dist/
           cp -r site/assets dist/
           cp -r site/images dist/
