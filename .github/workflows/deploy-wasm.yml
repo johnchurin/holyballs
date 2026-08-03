@@ -57,11 +57,10 @@ jobs:
         run: |
           mkdir dist
           # Copy your game assets into the distribution directory if they exist
-          if [ -d "assets" ]; then cp -r assets dist/; fi
-          # Copy your index.html entrypoint
-          cp index.html dist/
-          cp -r images dist/
-          cp favicon.ico dist/
+          cp site/index.html dist/
+          cp -r site/assets dist/
+          cp -r site/images dist/
+          cp site/favicon.ico dist/
 
       - name: Generate WASM Bindings
         run: |
