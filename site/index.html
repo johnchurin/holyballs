@@ -22,7 +22,7 @@
             container.requestFullscreen().catch(err => {
                 console.error("Error attempting to enable fullscreen:", err);
             });
-            console.log("start game");
+//            console.log("start game");
             const button = document.getElementById('play');
             button.innerHTML = "<i class='fa fa-spinner fa-spin'></i>Starting Game";
             await init();
@@ -94,6 +94,19 @@
         .hero h1 {
             font-size: 3rem;
             margin-bottom: 1rem;
+        }
+        p {
+            padding-top: 1rem;
+        }
+        h2 {
+            padding-top: 3rem;
+        }
+        h3 {
+            padding-top: 2rem;
+        }
+        h5 {
+            font-size: 15pt;
+            padding-top: 1.5rem;
         }
         .hero p {
             font-size: 1.25rem;
@@ -206,11 +219,12 @@
     Play Now
 </button>
 <h3>Objective</h3>
-    <p>Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table, you lose points. </p>
+    <p>Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table,
+        you lose points. The level concludes successfully when all the toys are off of the table.</p>
     <p>You don't control the ball directly but rather apply invisible forces to make the ball move.
         Gravity, friction, and momentum does the rest.</p>
     <p>Beginner levels offer some aides to get you used to the game. For example, a magic fence is used to keep the ball on the table
-        while allowing toys to fall through it. And the levels are not timed.</p>
+        while allowing toys to fall through it. And, the levels are not timed.</p>
     <p>As you advance to higher levels, there are more challenges: More and different toys.
     Wind will be introduced on some levels. Higher levels are timed.</p>
     <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls
