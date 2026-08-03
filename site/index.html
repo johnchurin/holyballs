@@ -4,27 +4,37 @@
     <meta charset="utf-8">
     <title>Holyballs by sodacan.io</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/site/favicon.icon.ico" sizes="any">
     <script type="module">
         // Import the initialization function and your exported Rust function
-       import init from "./holyballs.js";
+       import init, { exit_game, start, add_numbers } from "./holyballs.js";
         const button = document.getElementById("play");
         button.addEventListener("click", startGame);
-
         async function startGame() {
+            const container = document.getElementById("fullscreenContainer");
+            const closeBtn = document.getElementById("closeBtn");
+            closeBtn.onclick = () => {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                exit_game();
+            };
+            container.requestFullscreen().catch(err => {
+                console.error("Error attempting to enable fullscreen:", err);
+            });
             console.log("start game");
             const button = document.getElementById('play');
             button.innerHTML = "<i class='fa fa-spinner fa-spin'></i>Starting Game";
            await init();
+
+            let r = add_numbers(3,4);
+//            start_canvas();
+            console.log("Result from Rust:",r);
+            start();
             // Call a Rust function exposed via wasm-bindgen, here
         }
     </script>
     <style>
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-        }
         /* Base Reset & Typography */
         * {
             margin: 0;
@@ -32,7 +42,8 @@
             box-sizing: border-box;
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14pt;
             line-height: 1.6;
             color: #333;
             background-color: #f4f7f6;
@@ -131,7 +142,10 @@
             margin-bottom: 1rem;
             color: #2c3e50;
         }
-
+        main {
+            padding-left: 10rem;
+            padding-right: 10rem;
+        }
         /* Footer */
         footer {
             background-color: #2c3e50;
@@ -141,9 +155,40 @@
             margin-top: 4rem;
             font-size: 0.9rem;
         }
+        /* Container styles */
+        #fullscreenContainer {
+            background-color: #ffffff;
+            padding: 10px;
+        }
+
+        /* Fixes button placement specifically when container enters fullscreen mode */
+        #fullscreenContainer:fullscreen #closeBtn {
+            display: block;
+            position: fixed;
+            font-size: 14pt;
+            top: 20px;
+            right: 20px;
+            z-index: 99999; /* Ensure it stays on top of video or canvas layers */
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        /* Fallback hidden utility class for normal screen state */
+        .hidden {
+            display: none;
+        }
+
     </style>
 </head>
 <body>
+<div id="fullscreenContainer">
+    <canvas id="game-canvas"></canvas>
+    <button id="closeBtn" class="hidden">&times; End Game</button>
+</div>
 <header>
     <nav>
         <a href="http://sodacan.io" class="logo"><img src="images/sodacan.png" alt="Sodacan">&nbsp sodacan.io</a>
@@ -185,6 +230,5 @@
 <footer>
     <p>&copy; 2026 Sodacan.io and holyballs.games. All rights reserved.</p>
 </footer>
-
 </body>
 </html>
