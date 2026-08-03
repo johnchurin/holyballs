@@ -4,39 +4,9 @@
     <meta charset="utf-8">
     <title>Holyballs by sodacan.io</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="icon" href="/site/favicon.icon.ico" sizes="any">
-    <script type="module">
-        // Import the initialization function and your exported Rust function
-        import init, { exit_game, start } from "./holyballs.js";
-        const button = document.getElementById("play");
-        button.addEventListener("click", startGame);
-
-        async function startGame() {
-            const container = document.getElementById("fullscreenContainer");
-            const closeBtn = document.getElementById("closeBtn");
-            const button1 = document.getElementById("play");
-//            const gameCanvas = document.getElementById("game_canvas");
-            button1.disabled = true;
-            closeBtn.onclick = () => {
-                exit_game();
-                console.log("Exiting Game");
-            };
-            container.requestFullscreen().catch(err => {
-                console.error("Error attempting to enable fullscreen:", err);
-            });
-//            console.log("start game");
-            const button = document.getElementById('play');
-            button.innerHTML = "<i class='fa fa-spinner fa-spin'></i>Starting Game";
-            await init();
-            container.style.display = "block";
-            start();
-            console.log("Return from game");
-
-            // Call a Rust function exposed via wasm-bindgen, here
-        }
-    </script>
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <script type="module" src="js/game.js" defer></script>
     <style>
-        /* Base Reset & Typography */
         * {
             margin: 0;
             padding: 0;
@@ -197,6 +167,11 @@
         .hidden {
             display: none;
         }
+        .inline-container {
+            display: flex;
+            align-items: center; /* Aligns them vertically in the middle */
+            gap: 10px;          /* Adds space between checkbox and select */
+        }
 
     </style>
 </head>
@@ -217,9 +192,20 @@
 </header>
 <main>
 <h2>Welcome to the <b>Holy Balls</b> game</h2>
-<button id="play" class="play-button">
-    Play Now
-</button>
+
+<div class="inline-container">
+    <button id="play" class="play-button">
+        Play Now
+    </button>
+    <input type="checkbox" id="sound" name="sound" checked>
+    <label for="sound">With sound</label><br>
+    <label for="level">Starting Level:</label>
+    <select name="level" id="level">
+        <option value="1">Easy</option>
+        <option value="5">Fun</option>
+        <option value="9">Hard</option>
+    </select>
+</div>
 <h3>Objective</h3>
     <p>Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table,
         you lose points. The level concludes successfully when all the toys are off of the table.</p>
@@ -231,13 +217,12 @@
     Wind will be introduced on some levels. Higher levels are timed.</p>
     <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls
         by hitting them with the red ball.</p>
-<h3>Things to know before starting the game</h3>
-<h5>Hardware Requirements</h5>
+<h3>Hardware Requirements</h3>
 <p>Many 3d games require a beefy GPU. However, the live 3d Holy Balls game uses relatively simple toy patterns
     like blocks, cones, and cylinders which require less of the GPU. This approach allows the game to run on modest (but modern)
     hardware such as laptops. Doesn't work on iPhone, yet.
 </p>
-<h5>User actions</h5>
+<h3>User actions</h3>
     <p>press the X key or click the Exit Game button to exit the game.</p>
     <p>Press the G key to start a new game.</p>
     <p>Press the N key to start the next level. If the level is timed, the timer starts now.</p>
@@ -250,8 +235,8 @@
     <h3>About</h3>
     <p>I'm happily retired. Just doing this for fun. No commercial interest. No ads. Just the game. I don't and won't collect
         any info from you and I don't use cookies (yet). </p>
-    <h3>License</h3>
-    <p></p>
+<h3>License</h3>
+<p></p>
 </main>
 <footer>
     <p>&copy; 2026 Sodacan.io and holyballs.games. All rights reserved.</p>

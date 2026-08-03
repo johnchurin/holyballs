@@ -1,6 +1,5 @@
 // Suppress console output
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-mod setup_canvas;
 use bevy::audio::Volume;
 use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
@@ -15,7 +14,7 @@ use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[wasm_bindgen(module = "/site/game.js")]
+#[wasm_bindgen(module = "/site/js/export.js")]
 extern "C" {
     fn game_ended();
 }
@@ -43,7 +42,10 @@ pub fn main() {
 }
 
 #[wasm_bindgen]
-pub fn start() {
+pub fn start(
+    sound: bool,
+    starting_level: i32,
+) {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -62,7 +64,7 @@ pub fn start() {
         .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(Scoreboard::new())
+        .insert_resource(Scoreboard::new(sound, starting_level))
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(ScoringHelpTimer::new(4.0))
@@ -313,11 +315,13 @@ struct Scoreboard {
     total: i32,
     toys: i32,
     balls: i32,
+    sound: bool,
+    starting_level: i32,
 }
 
 impl Scoreboard {
-    fn new() -> Self {
-        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0 }
+    fn new(sound: bool, starting_level: i32) -> Self {
+        Self { running: false, score: 0, level: starting_level-1, total: 0, toys: 0, balls: 0, sound, starting_level }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
@@ -353,7 +357,7 @@ impl Scoreboard {
         println!("reset scoreboard");
         self.running = false;
         self.score = 0;
-        self.level = 0;
+        self.level = self.starting_level-1;
         self.total = 0;
         self.balls = 0;
     }
@@ -411,9 +415,8 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "Objective: Use a ball to push toys off the table.\n\
-        Press Enter to get your first ball.\n\
-        Use arrow keys or the mouse to move the ball.".to_string(),
+        help: "Press Enter to get a ball.\n\
+        If you lose a ball over the edge, you've got 4 more balls.".to_string(),
         ..GameLevel::default()
     });
 
@@ -434,7 +437,7 @@ fn setup_configuration(
         blocks: 1,
         disks: 1,
         help: "Fewer balls available now\n\
-        and the levels are timed, now.".to_string(),
+        and, the levels are timed.".to_string(),
         ..GameLevel::default()
     });
 
@@ -473,8 +476,8 @@ fn setup_configuration(
         barriers: 2,
         targets: 1,
         help: "Balls to the walls: Hit the disk on the scoreboard.\n\
-        You may have to push it off the edge, too, if it lands on the table.\n\
-        Only three balls for this level.".to_string(),
+        If it lands on the table, you have to push it off the edge\n\
+        to get points.".to_string(),
         ..GameLevel::default()
     });
 
@@ -833,38 +836,41 @@ fn handle_sound(
     mut messages: MessageReader<SoundMessage>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
+    scoreboard: Res<Scoreboard>,
 ) {
     for event in messages.read() {
-        match event.sound_type {
-            SoundType::Win => {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/beep.ogg")),
-                    PlaybackSettings::ONCE,
-                ));
-            }
-            SoundType::Lose => {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/buzzer.ogg")),
-                    PlaybackSettings::ONCE,
-                ));
-            }
-            SoundType::Bonus => {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/tinkle.ogg")),
-                    PlaybackSettings::ONCE,
-                ));
-            }
-            SoundType::NewLevel => {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/intro.ogg")),
-                    PlaybackSettings::ONCE,
-                ));
-            }
-            SoundType::FinishLevel => {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load("audio/fanfare.ogg")),
-                    PlaybackSettings::ONCE,
-                ));
+        if scoreboard.sound {
+            match event.sound_type {
+                SoundType::Win => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/beep.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
+                SoundType::Lose => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/buzzer.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
+                SoundType::Bonus => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/tinkle.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
+                SoundType::NewLevel => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/intro.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
+                SoundType::FinishLevel => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/fanfare.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
             }
         }
     }
@@ -1722,6 +1728,7 @@ fn setup_game_board(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
     // Scoreboard text
@@ -1894,5 +1901,9 @@ fn setup_game_board(
             scale: Vec3::new(4.0, 4.0, 2.0),
         },
     ));
-    commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the G key to start a new game".to_string()});
+    scoreboard.reset();
+    scoreboard.next_level();
+    //    println!("Sending next level from start_new_game");
+    commands.write_message(PlayLevel {});
+//    commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the G key to start a new game".to_string()});
 }
