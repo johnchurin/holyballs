@@ -60,7 +60,7 @@ jobs:
           cp site/index.html dist/
           cp -r site/assets dist/
           cp -r site/images dist/
-          cp site/favicon.ico dist/
+          cp -r site/js dist/
 
       - name: Generate WASM Bindings
         run: |
