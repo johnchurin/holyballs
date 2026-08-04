@@ -1,7 +1,7 @@
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
 // Suppress console output
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;
 use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
@@ -44,6 +44,8 @@ const BALL_GROUP: Group = Group::GROUP_1;  // 0b0001
 const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
 const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
 const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
+
+const CONTINUOUS_PLAY: bool = true;
 pub fn main() {
 }
 
@@ -116,7 +118,9 @@ pub fn start_game(
             handle_sound,
             handle_asset_color_propagation,
             score_fallen_entities,
+            handle_ball_message,
         ))
+        .add_message::<BallMessage>()
         .add_message::<PointValueMessage>()
         .add_message::<PropagateAssetColorMessage>()
         .add_message::<ActivateGameMessage>()
@@ -234,6 +238,9 @@ struct PointValueMessage {
 #[derive(Message)]
 struct SoundMessage {
     sound_type: SoundType,
+}
+#[derive(Message)]
+struct BallMessage {
 }
 #[derive(Message)]
 struct PlayLevel {}
@@ -421,8 +428,7 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "Press Enter to get a ball.\n\
-        If you lose a ball over the edge, you've got 4 more balls.".to_string(),
+        help: "If you lose a ball over the edge, you've got 4 more balls.".to_string(),
         ..GameLevel::default()
     });
 
@@ -730,21 +736,27 @@ fn score_fallen_entities(
                 }
             }
         } else {
+            // Put the toy count back as we found it.
             scoreboard.toys += 1;
         }
     }
+    // We're out of toys, so it's time for a new level.
     if scoreboard.running && scoreboard.toys == 0 {
-        // Round is no longer running
+        // The level is no longer running
         scoreboard.stop();
-        println!("{} toys found", scoreboard.toys);
+//        println!("{} toys found", scoreboard.toys);
         scoreboard.hit(100);
         commands.write_message(HelpMessage {
             help_type: HelpType::Score,
             text: "100 bonus points for clearing this level".to_string()
         });
-        let text = format!("Press N to start level {}", scoreboard.level + 1);
-        commands.write_message(HelpMessage { help_type: HelpType::Next, text });
         commands.write_message(SoundMessage { sound_type: SoundType::FinishLevel });
+        if CONTINUOUS_PLAY {
+            start_next_level(scoreboard, commands);
+        } else {
+            let text = format!("Press N to start level {}", scoreboard.level + 1);
+            commands.write_message(HelpMessage { help_type: HelpType::Next, text });
+        }
         return;
     }
     // Look for fallen balls
@@ -768,10 +780,14 @@ fn score_fallen_entities(
                             commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game Over. Press G to start new game".to_string() });
                         }
                     } else {
-                        commands.write_message(HelpMessage {
-                            help_type: HelpType::Score,
-                            text: "Press Enter for another ball".to_string()
-                        });
+                        if CONTINUOUS_PLAY {
+                            commands.write_message(BallMessage {});
+                        } else {
+                            commands.write_message(HelpMessage {
+                                help_type: HelpType::Score,
+                                text: "Press Enter for another ball".to_string()
+                            });
+                        }
                     }
 
                     commands.write_message(
@@ -1548,7 +1564,9 @@ fn handle_new_level(
         for entity in clock_face_query.iter() {
             commands.entity(entity).despawn();
         }
-        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
+        if !CONTINUOUS_PLAY {
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
+        }
         //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage {});
         let game_level = configuration.get_game_level(scoreboard.level);
@@ -1575,6 +1593,10 @@ fn handle_new_level(
         }
         commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
+        // Ready to drop a ball
+        if CONTINUOUS_PLAY {
+            commands.write_message(BallMessage{});
+        }
         //        println!("Done creating toys");
     }
 }
@@ -1621,8 +1643,13 @@ fn _update_dead_balls(
         }
     }
 }
-
 fn drop_a_ball(
+    mut commands: Commands,
+) {
+    commands.write_message(BallMessage{});
+}
+fn handle_ball_message(
+    mut messages: MessageReader<BallMessage>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -1630,22 +1657,24 @@ fn drop_a_ball(
     mut scoreboard: ResMut<Scoreboard>,
     game_level_res: Res<GameLevelResource>,
 ) {
-    if scoreboard.balls == 0 {
-        if scoreboard.running {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You have no balls".to_string() });
+    for _event in messages.read() {
+        if scoreboard.balls == 0 {
+            if scoreboard.running {
+                commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You have no balls".to_string() });
+            }
+            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
+            return;
         }
-        commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press G to start a game, or N to start the next level".to_string() });
-        return;
-    }
-    // If another ball on the table, just quietly ignore the request.
-    for _ball in query.iter() {
-        return;
-    }
-    if game_level_res.game_level.is_some() {
-        let game_level = game_level_res.game_level.as_ref().unwrap();
-        // Update scoreboard
-        scoreboard.use_a_ball();
-        create_ball(game_level, &mut commands, &mut meshes, &mut materials);
+        // If another ball on the table, just quietly ignore the request.
+        for _ball in query.iter() {
+            return;
+        }
+        if game_level_res.game_level.is_some() {
+            let game_level = game_level_res.game_level.as_ref().unwrap();
+            // Update scoreboard
+            scoreboard.use_a_ball();
+            create_ball(game_level, &mut commands, &mut meshes, &mut materials);
+        }
     }
 }
 
@@ -1656,16 +1685,15 @@ fn impulse(
     mut commands: Commands,
 ) {
     // Just interested in the live ball
-    let balls = balls.iter_mut();
-    if balls.len() == 0 {
-        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press enter to get a fresh ball".to_string() });
-        return;
+    if !CONTINUOUS_PLAY {
+        let balls = balls.iter_mut();
+        if balls.len() == 0 {
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press enter to get a fresh ball".to_string() });
+            return;
+        }
     }
     for (mut impulse, ball) in balls {
         if ball.live {
-            // if mouse.just_pressed(MouseButton::Left) {
-            //     impulse.impulse = Vec3::new(0.0, BUMP * 2.0, 0.0);
-            // }
             // See which key was pressed
             for key in keyboard_input.get_just_pressed() {
                 match key {
