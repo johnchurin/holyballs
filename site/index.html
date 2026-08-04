@@ -81,11 +81,14 @@
             z-index: 99999; /* Ensure it stays on top of video or canvas layers */
             padding: 10px 15px;
         }
+        #game-canvas:focus {
+            outline: 2px solid #007bff;
+        }
     </style>
 </head>
 <body>
 <div id="fullscreenContainer">
-    <canvas id="game-canvas"></canvas>
+    <canvas id="game-canvas" tabindex="0"></canvas>
     <button id="closeBtn" class="btn-close"></button>
 </div>
 <header>

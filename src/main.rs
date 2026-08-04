@@ -40,6 +40,10 @@ const SCOREBOARD_COLOR: Color = Color::srgb(0.5, 0.5, 0.0);
 //    const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 //    const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
+const BALL_GROUP: Group = Group::GROUP_1;  // 0b0001
+const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
+const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
+const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 pub fn main() {
 }
 
@@ -933,7 +937,7 @@ fn create_countdown_board(
     let font = asset_server.load("fonts/digital_clock.ttf");
     commands.spawn((
         ClockBoard {},
-        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
@@ -1019,7 +1023,7 @@ fn create_fences(
     let n = game_level.fences;
     if n == 1 || n == 3 || n == 4 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
             NotShadowCaster,
             Fence { },
             RigidBody::Fixed,
@@ -1033,7 +1037,7 @@ fn create_fences(
     }
     if n == 2 || n == 3 || n == 4 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
             NotShadowCaster,
             Fence {  },
             RigidBody::Fixed,
@@ -1047,7 +1051,7 @@ fn create_fences(
     }
     if n == 4 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
             NotShadowCaster,
             Fence {  },
             RigidBody::Fixed,
@@ -1061,7 +1065,7 @@ fn create_fences(
     }
     if n == 2 || n == 3 || n == 4 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_3, Group::GROUP_1),
+            CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
             NotShadowCaster,
             Fence {  },
             RigidBody::Fixed,
@@ -1093,7 +1097,7 @@ fn create_ball(
     let external_force = make_external_force(game_level);
     // Spawn a Dynamic Bouncing Ball
     commands.spawn((
-        CollisionGroups::new(Group::GROUP_1, Group::GROUP_1 | Group::GROUP_2 | Group::GROUP_3 | Group::GROUP_4),
+        CollisionGroups::new(BALL_GROUP, TOY_GROUP | FENCE_GROUP | FIXED_GROUP),
         BouncyBall { live: true },
         RigidBody::Dynamic,
         PointValue { value: -10 },
@@ -1129,7 +1133,7 @@ fn create_blocks(
     // Boxes
     for _n in 0..game_level.blocks {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -1163,7 +1167,7 @@ fn create_disks(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.disks {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -1193,7 +1197,7 @@ fn create_cones(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.cones {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             ToyType { dynamic: true },
             RigidBody::Dynamic,
             Friction::new(0.1),
@@ -1224,7 +1228,7 @@ fn create_blacks(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.blacks {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -1272,7 +1276,7 @@ fn create_dips(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.dips {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             ExternalImpulse::default(),
@@ -1318,7 +1322,7 @@ fn create_bumpys(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.bumpys {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.0),
@@ -1341,7 +1345,7 @@ fn create_targets(
     let external_force = make_external_force(game_level);
     if game_level.targets > 0 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 35 },
@@ -1357,7 +1361,7 @@ fn create_targets(
     }
     if game_level.targets > 1 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
@@ -1373,7 +1377,7 @@ fn create_targets(
     }
     if game_level.targets > 2 {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             ToyType { dynamic: false },
             RigidBody::Fixed,
             PointValue { value: 45 },
@@ -1398,7 +1402,7 @@ fn create_ghosts(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.ghosts {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.2),
@@ -1431,7 +1435,7 @@ fn create_lifesavers(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.lifesavers {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.0),
@@ -1463,7 +1467,7 @@ fn create_spikeys(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.spikeys {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.4),
@@ -1486,7 +1490,7 @@ fn create_cylinders(
     let external_force = make_external_force(game_level);
     for _n in 0..game_level.cylinders {
         commands.spawn((
-            CollisionGroups::new(Group::GROUP_2, Group::GROUP_1 | Group::GROUP_4),
+            CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
             RigidBody::Dynamic,
             ToyType { dynamic: true },
             Friction::new(0.8),
@@ -1766,7 +1770,7 @@ fn setup_game_board(
     ));
     // Scoreboard
     commands.spawn((
-        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
@@ -1864,7 +1868,7 @@ fn setup_game_board(
 
     // Game Surface, the top of the surface is at y=0.0
     commands.spawn((
-        CollisionGroups::new(Group::GROUP_4, Group::GROUP_1 | Group::GROUP_2),
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
