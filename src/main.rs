@@ -1,3 +1,5 @@
+// Holy Balls 3d game
+// Copyright (C) 2026 John Churin
 // Suppress console output
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;

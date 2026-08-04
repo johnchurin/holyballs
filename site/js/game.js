@@ -11,13 +11,22 @@ sound.addEventListener('change', function() {
     }
 });
 
+const elements = document.querySelectorAll('p');
+
+// Loop through each element and add the CSS class
+elements.forEach(element => {
+    element.classList.add('fs-5');
+});
+
 async function startGame() {
     const container = document.getElementById("fullscreenContainer");
     const closeBtn = document.getElementById("closeBtn");
     const button1 = document.getElementById("play");
+    const playLabel = document.getElementById("playLabel");
     const spinner = document.getElementById("spinner");
     button1.disabled = true;
     spinner.style.display = "block";
+    playLabel.style.display = "none";
     closeBtn.onclick = () => {
         exit_game();
         console.log("Exiting Game");
