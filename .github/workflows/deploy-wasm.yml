@@ -53,26 +53,16 @@ jobs:
         run: |
           cargo build --release --target wasm32-unknown-unknown
 
-      - name: Create Distribution Directory
-        run: |
-          mkdir dist
-          # Copy your game assets into the distribution directory
-          cp site/index.html dist/
-          cp -r site/assets dist/
-          cp -r site/images dist/
-          cp -r site/generated dist/
-          cp -r site/js dist/
-
       - name: Generate WASM Bindings
         run: |
           wasm-bindgen --target web \
-            --out-dir ./dist \
+            --out-dir ./site/generated \
             target/wasm32-unknown-unknown/release/holyballs.wasm
 
       - name: Upload Build Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./site
 
       - name: Deploy to GitHub Pages
         id: deployment
