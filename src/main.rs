@@ -42,7 +42,7 @@ pub fn main() {
 }
 
 #[wasm_bindgen]
-pub fn start(
+pub fn start_game(
     sound: bool,
     starting_level: i32,
 ) {
