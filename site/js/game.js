@@ -17,7 +17,6 @@ async function startGame() {
     const button1 = document.getElementById("play");
     const spinner = document.getElementById("spinner");
     button1.disabled = true;
-    container.style.display = "block";
     spinner.style.display = "block";
     closeBtn.onclick = () => {
         exit_game();
@@ -30,4 +29,5 @@ async function startGame() {
     const sound = document.getElementById("sound");
     const level = document.getElementById("level").value;
     start_game(sound.checked, level);
+    container.style.display = "block";
 }

@@ -94,10 +94,10 @@
     <canvas id="game-canvas"></canvas>
     <button id="closeBtn" class="btn-close"></button>
 </div>
-<div class="container">
 <header>
     <nav>
         <a href="http://sodacan.io" class="logo"><img src="images/sodacan.png" alt="Sodacan">&nbsp sodacan.io</a>
+        <p>Welcome to the <b>Holy Balls</b> game</p>
         <ul class="nav-links">
             <li><a href="#">Home</a></li>
             <li><a target="_blank" href="https://github.com/johnchurin/holyballs">Github</a></li>
@@ -106,10 +106,14 @@
     </nav>
 </header>
 <main>
-<h2>Welcome to the <b>Holy Balls</b> game</h2>
-<div style="display:none" id="spinner" class="z-3 position-absolute spinner-border text-primary" role="status"></div>
+<div class="container">
 <div class="inline-container">
-    <button id="play" class="btn btn-danger">Play</button>
+    <button id="play" class="btn btn-danger text-nowrap">
+        <span class="text-nowrap">
+            <span id="spinner" style="display:none" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            <span role="status">Play</span>
+        </span>
+    </button>
     <input type="checkbox" class="btn-check" id="sound" name="sound" checked>
     <label for="sound" class="btn btn-outline-primary" id="soundLabel">Sound&nbspOn</label><br>
     <label for="level">Level&nbspof&nbspplay</label>
