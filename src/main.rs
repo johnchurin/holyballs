@@ -719,8 +719,7 @@ fn handle_sensor_events(
 //                                    println!("parent.0: {:?}, toy: {:?}", parent.0.entity(), toy_entity);
                                     if child_point_value.value != 0 {
                                         commands.write_message(PointValueMessage { entity: toy_entity, value: child_point_value.value });
-                                        //                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Bonus earns extra {} points", child_point_value.value) });
-                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Bonus earns extra ".to_string() });
+                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You get bonus points for that task".to_string() });
                                         child_point_value.value = 0;
                                         commands.write_message(SoundMessage { sound_type: SoundType::Bonus });
                                         // Change color (of parent and descendents) when bonus hits on a sensor child
