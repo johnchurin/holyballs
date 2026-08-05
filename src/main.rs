@@ -487,7 +487,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
+        seconds: Some(Duration::from_mins(1)),
         balls: 3,
         fences: 1,
         blocks: 1,
@@ -642,6 +642,7 @@ fn update_countdown(
     time: Res<Time>,
     mut scoreboard: ResMut<Scoreboard>,
     mut countdown_board: ResMut<CountdownBoard>,
+    mut exit_delay: ResMut<ExitDelay>,
 ) {
     if scoreboard.running && countdown_board.is_running() {
         countdown_board.reduce_countdown(time.delta());
@@ -649,8 +650,9 @@ fn update_countdown(
             scoreboard.stop();
             commands.write_message(HelpMessage {
                 help_type: HelpType::Score,
-                text: "Time has expired. Press G to start a new game.".to_string()
+                text: "Time has expired. Game Over.".to_string()
             });
+            exit_delay.seconds = Some(5.0);
         }
     }
 }
