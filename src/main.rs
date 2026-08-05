@@ -67,6 +67,7 @@ pub fn main() {
         } else {
             1
         };
+        println!("Sound: {}, Level: {}", sound, level);
         start_game(sound, level);
     }
 
@@ -246,6 +247,7 @@ enum SoundType {
     Lose,
     Bonus,
     NewLevel,
+    GameOver,
     FinishLevel,
 }
 #[derive(Message)]
@@ -384,7 +386,7 @@ impl Scoreboard {
         self.running = false;
     }
     fn start(&mut self) {
-        println!("starting game");
+        println!("starting level {}", self.starting_level);
         self.running = true;
     }
     fn next_level(&mut self) {
@@ -472,7 +474,7 @@ fn setup_configuration(
         balls: 5,
         blocks: 1,
         fences: 4,
-        help: "If you lose a ball over the edge, you've got 4 more balls.".to_string(),
+        help: "If you lose a ball over the edge, another one will fall automatically.".to_string(),
         ..GameLevel::default()
     });
 
@@ -487,7 +489,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(1)),
+        seconds: Some(Duration::from_mins(2)),
         balls: 3,
         fences: 1,
         blocks: 1,
@@ -498,7 +500,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
+        seconds: Some(Duration::from_mins(2)),
         balls: 3,
         barriers: 1,
         blocks: 2,
@@ -507,7 +509,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         blacks: 1,
@@ -517,17 +519,17 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         blocks: 2,
         wind: Some(Vec3::new(0.3, 0.0, 0.0)),
-        help: "This time with a breeze out of the west".to_string(),
+        help: "This time with a light breeze coming out of the west".to_string(),
         ..GameLevel::default()
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
+        seconds: Some(Duration::from_mins(4)),
         balls: 3,
         barriers: 2,
         targets: 1,
@@ -538,11 +540,11 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(4)),
+        seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
         ghosts: 4,
-        help: "Some ghost blocks.".to_string(),
+        help: "Some ghost blocks. 3 minutes to clear the toys.".to_string(),
         ..GameLevel::default()
     });
 
@@ -652,6 +654,9 @@ fn update_countdown(
                 help_type: HelpType::Score,
                 text: "Time has expired. Game Over.".to_string()
             });
+            // Wha Wha Wha them out
+            commands.write_message(SoundMessage { sound_type: SoundType::GameOver });
+            // Game over. Leave, but slowly
             exit_delay.seconds = Some(5.0);
         }
     }
@@ -711,7 +716,7 @@ fn handle_sensor_events(
                             // Now get the toy so we can add the points in
                             if sensor == sensor_entity {
                                 if let Ok(toy_entity) = toy_query.get_mut(parent.0) {
-                                    println!("parent.0: {:?}, toy: {:?}", parent.0.entity(), toy_entity);
+//                                    println!("parent.0: {:?}, toy: {:?}", parent.0.entity(), toy_entity);
                                     if child_point_value.value != 0 {
                                         commands.write_message(PointValueMessage { entity: toy_entity, value: child_point_value.value });
                                         //                                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Bonus earns extra {} points", child_point_value.value) });
@@ -753,8 +758,6 @@ fn handle_sensor_events(
 
 fn score_fallen_entities(
     mut commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<StandardMaterial>>,
     ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<ToyType>)>,
     toy_query: Query<(Entity, &Transform, &PointValue), (With<ToyType>, Without<BouncyBall>)>,
     mut scoreboard: ResMut<Scoreboard>,
@@ -765,14 +768,13 @@ fn score_fallen_entities(
     for (entity, transform, point_value) in toy_query.iter() {
         //        scoreboard.remaining += 1;
         if transform.translation.y < -15.0 {
-            commands.entity(entity).despawn();
             println!("Toy despawned {} points", point_value.value);
             if scoreboard.running {
                 scoreboard.hit(point_value.value);
                 if point_value.value > 0 {
-                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("You scored {} points!", point_value.value) });
+                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy overboard. You scored {} points!", point_value.value) });
                 } else {
-                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("You lost {} points", -point_value.value) });
+                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy overboard. You lost {} points", -point_value.value) });
                 }
                 if point_value.value != 0 && scoreboard.running {
                     commands.write_message(
@@ -781,6 +783,9 @@ fn score_fallen_entities(
                             { SoundType::Lose } else { SoundType::Win }
                         });
                 }
+            }
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
             }
         } else {
             // Put the toy count back as we found it.
@@ -806,28 +811,31 @@ fn score_fallen_entities(
         }
         return;
     }
-    // Look for fallen balls
+    // Look for any fallen balls
     for (entity, ball, transform, point_value) in ball_query.iter() {
         if transform.translation.y < -15.0 {
-            commands.entity(entity).despawn();
-            // println!("Ball despawned {} points", point_value.value);
-            // commands.write_message( HelpMessage{help_type: HelpType::Score,
-            //     text: format!("Ball despawned {} points, scoreboard running: {}", point_value.value,scoreboard.running)});
             if scoreboard.running {
                 scoreboard.hit(point_value.value);
                 if point_value.value != 0 {
                     if point_value.value > 0 {
-                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("You scored {} points", point_value.value) });
+                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball overboard. You scored {} points", point_value.value) });
                     } else {
-                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("You lost {} points", -point_value.value) });
+                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball overboard. You lost {} points", -point_value.value) });
                     }
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {
                         if ball.live {
                             commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game Over.".to_string() });
+                            // Wha Wha Wha them out
+                            commands.write_message(SoundMessage { sound_type: SoundType::GameOver });
                             exit_delay.seconds = Some(5.0);
                         }
                     } else {
+                        commands.write_message(
+                            SoundMessage {
+                                sound_type: if point_value.value < 0
+                                { SoundType::Lose } else { SoundType::Win }
+                            });
                         if CONTINUOUS_PLAY {
                             commands.write_message(BallMessage {});
                         } else {
@@ -837,13 +845,10 @@ fn score_fallen_entities(
                             });
                         }
                     }
-
-                    commands.write_message(
-                        SoundMessage {
-                            sound_type: if point_value.value < 0
-                            { SoundType::Lose } else { SoundType::Win }
-                        });
                 }
+            }
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
             }
         }
     }
@@ -853,7 +858,7 @@ fn handle_help_message(
     mut messages: MessageReader<HelpMessage>,
     mut help_query: Query<&mut TextMesh, (With<HelpWall>, Without<ScoringWall>)>,
     mut score_query: Query<(Entity, &mut TextMesh, &mut Visibility), (With<ScoringWall>, Without<HelpWall>)>,
-    mut countdown: ResMut<ScoringHelpTimer>,
+    mut scoring_help_timer: ResMut<ScoringHelpTimer>,
     time: Res<Time>,
 ) {
     for message in messages.read() {
@@ -861,13 +866,13 @@ fn handle_help_message(
             HelpType::Score => {
                 for (entity, mut text_mesh, mut visibility) in score_query.iter_mut() {
                     *visibility = Visibility::Visible {};
-                    if countdown.active && !text_mesh.text.ends_with(message.text.as_str()) {
+                    if scoring_help_timer.active && !text_mesh.text.ends_with(message.text.as_str()) {
                         text_mesh.text += "\nand ";
                         text_mesh.text += message.text.as_str();
                     } else {
                         text_mesh.text = message.text.clone();
                     }
-                    countdown.start(entity, time.elapsed_secs());
+                    scoring_help_timer.start(entity, time.elapsed_secs());
                 }
             }
             HelpType::Next => {
@@ -892,11 +897,14 @@ fn handle_point_value_message(
 fn handle_impulse_message(
     mut messages: MessageReader<ImpulseMessage>,
     mut query: Query<(Entity, &mut ExternalImpulse), With<ToyType>>,
+    mut commands: Commands,
 ) {
     for message in messages.read() {
-        for (entity, mut external_impulse) in query.iter_mut() {
-            if entity.entity() == message.entity.entity() {
-                external_impulse.impulse = message.force;
+        if commands.get_entity(message.entity).is_ok() {
+            for (entity, mut external_impulse) in query.iter_mut() {
+                if entity == message.entity {
+                    external_impulse.impulse = message.force;
+                }
             }
         }
     }
@@ -929,6 +937,12 @@ fn handle_sound(
                         PlaybackSettings::ONCE,
                     ));
                 }
+                SoundType::GameOver => {
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("audio/wha-wha.ogg")),
+                        PlaybackSettings::ONCE,
+                    ));
+                }
                 SoundType::NewLevel => {
                     commands.spawn((
                         AudioPlayer::new(asset_server.load("audio/intro.ogg")),
@@ -958,7 +972,7 @@ fn handle_activate_game(
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     for _event in messages.read() {
-        println!("activate game");
+        println!("Next level key press");
         scoreboard.start();
     }
 }
@@ -979,7 +993,11 @@ fn handle_asset_color_propagation(
                 let mut unique_material = material.clone();
                 unique_material.base_color = message.color;
                 // 5. Overwrite the child's component with the unique material
-                commands.entity(message.entity).insert(MeshMaterial3d(materials.add(unique_material)));
+                if let Ok(mut entity_cmds) = commands.get_entity(message.entity) {
+                    entity_cmds.insert(MeshMaterial3d(materials.add(unique_material)));
+                }
+
+//                commands.entity(message.entity).insert(MeshMaterial3d(materials.add(unique_material)));
             }
         }
         // Then recurse to the children, if any
@@ -1014,6 +1032,7 @@ fn create_countdown_board(
     //     parent.spawn((
     commands.spawn((
         ClockBoardFace {},
+        Visibility::Hidden,
         TextMesh {
             text: "00:00".to_string(),
             font: font.clone(),
@@ -1032,7 +1051,7 @@ fn create_countdown_board(
             //            metallic: 0.8,
             perceptual_roughness: 0.3,
             reflectance: 0.8,
-            double_sided: true,
+            double_sided: false,
             cull_mode: None,
             ..default()
         })),
@@ -1582,8 +1601,8 @@ fn handle_new_level(
     mut game_level_res: ResMut<GameLevelResource>,
     asset_server: Res<AssetServer>,
     fence_query: Query<Entity, With<Fence>>,
-    clock_query: Query<Entity, With<ClockBoard>>,
-    clock_face_query: Query<Entity, With<ClockBoardFace>>,
+    //    clock_query: Query<Entity, With<ClockBoard>>,
+    mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
 ) {
     for _event in messages.read() {
         if scoreboard.level < 1 {
@@ -1593,25 +1612,37 @@ fn handle_new_level(
         }
         // Remove old balls, toys, and barriers
         for entity in old_balls.iter_mut() {
-            commands.entity(entity).despawn();
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
+            }
         }
         for entity in old_toys.iter_mut() {
-            commands.entity(entity).despawn();
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
+            }
         }
         for entity in old_barriers.iter_mut() {
-            commands.entity(entity).despawn();
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
+            }
         }
         // Remove previous fences
         for entity in fence_query.iter() {
-            commands.entity(entity).despawn();
+            if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+                entity_cmds.despawn();
+            }
         }
         // Remove old clocks and clock faces, if any
-        for entity in clock_query.iter() {
-            commands.entity(entity).despawn();
-        }
-        for entity in clock_face_query.iter() {
-            commands.entity(entity).despawn();
-        }
+        // for entity in clock_query.iter() {
+        //     if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+        //         entity_cmds.despawn();
+        //     }
+        // }
+        // for entity in clock_face_query.iter() {
+        //     if let Ok(mut entity_cmds) = commands.get_entity(entity) {
+        //         entity_cmds.despawn();
+        //     }
+        // }
         if !CONTINUOUS_PLAY {
             commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
         }
@@ -1634,10 +1665,17 @@ fn handle_new_level(
         create_lifesavers(game_level, &mut commands, &asset_server);
         create_cylinders(game_level, &mut commands, &asset_server);
         scoreboard.set_balls_count(game_level.balls);
-        if game_level.seconds != None {
-            create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server);
-            // Start the clock
+        if game_level.seconds == None {
+            for mut visibility in clock_face_query.iter_mut() {
+                *visibility = Visibility::Hidden;
+            }
+        } else {
+        // Start the clock
             countdown_board.start(game_level.seconds);
+            // And make it visible
+            for mut visibility in clock_face_query.iter_mut() {
+                *visibility = Visibility::Visible;
+            }
         }
         commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
@@ -1673,23 +1711,6 @@ fn restart_same_level(
 ) {
     //    scoreboard.same_level();
     commands.write_message(PlayLevel {});
-}
-fn _update_dead_balls(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut BouncyBall), With<BouncyBall>>,
-    time: Res<Time>,
-) {
-    for (entity, mut transform, ball) in query.iter_mut() {
-        // Dead balls only
-        if !ball.live {
-            if transform.scale.x < 0.1 {
-                commands.entity(entity).despawn();
-                println!("Dead ball despawned");
-            } else {
-                transform.scale -= 1.8 * time.delta_secs();
-            }
-        }
-    }
 }
 fn drop_a_ball(
     mut commands: Commands,
@@ -1813,6 +1834,8 @@ fn setup_game_board(
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
+    // The countdown clock
+    create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server);
     // Scoreboard text
     commands.spawn((
         Score{},

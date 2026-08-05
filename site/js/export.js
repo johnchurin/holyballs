@@ -6,6 +6,7 @@ export function game_ended() {
     if (document.fullscreenElement) {
         document.exitFullscreen().then();
     }
+    console.log("In Game Ended");
     const button = document.getElementById('play');
     // button.innerText = "Play";
     spinner.style.display = "none";

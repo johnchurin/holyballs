@@ -38,6 +38,7 @@ async function startGame() {
     const sound = document.getElementById("sound");
     const level = document.getElementById("level").value;
     start_game(sound.checked, level);
+    console.log("In start_game");
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
     canvas.focus();
