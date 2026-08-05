@@ -1,3 +1,4 @@
+use std::env;
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
 // Suppress console output
@@ -46,9 +47,34 @@ const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
 const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
 const CONTINUOUS_PLAY: bool = true;
-pub fn main() {
-}
 
+pub fn main() {
+    let args: Vec<String> = env::args().collect();
+    // The first element is always the path to the executable
+    if args.len() > 0 {
+        println!("Executable path: {}", args[0]);
+        let sound = if args.len() > 1 {
+            if args[1].as_str().eq_ignore_ascii_case("true") {
+                true
+            } else {
+                false
+            }
+        } else {
+            true
+        };
+        let level: i32 = if args.len() > 2 {
+            args[2].parse().expect("Cannot parse level")
+        } else {
+            1
+        };
+        start_game(sound, level);
+    }
+
+    // With arguments, we need to start the game
+    if args.len() > 1 {
+//        println!("First custom argument: {}", args[1]);
+    }
+}
 #[wasm_bindgen]
 pub fn start_game(
     sound: bool,
@@ -78,6 +104,7 @@ pub fn start_game(
         .insert_resource(ScoringHelpTimer::new(4.0))
         .insert_resource(Configuration::new())
         .insert_resource(GameLevelResource::new())
+        .insert_resource(ExitDelay{ seconds: None})
         .add_systems(Update, (
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
@@ -130,6 +157,10 @@ pub fn start_game(
         .add_message::<SoundMessage>()
         .run();
 
+}
+#[derive(Resource)]
+struct ExitDelay {
+    seconds: Option<f32>,
 }
 #[derive(Resource)]
 struct ScoringHelpTimer {
@@ -394,6 +425,7 @@ fn setup_window(
 }
 
 static mut EXIT_NOW: bool = false;
+// When this reaches zero, exit immediately
 #[wasm_bindgen]
 pub fn exit_game() {
     unsafe {
@@ -403,24 +435,36 @@ pub fn exit_game() {
     game_ended();
 }
 fn wait_for_exit(
+    time: Res<Time>,
     mut commands: Commands,
+    mut exit_delay: ResMut<ExitDelay>,
 ) {
     unsafe {
         if EXIT_NOW {
-//            commands.write_message(SoundMessage { sound_type: SoundType::Lose });
             commands.write_message(AppExit::Success);
             EXIT_NOW = false;
         }
+    }
+    // Delayed exit
+    if exit_delay.seconds.is_some() {
+        let delay = exit_delay.seconds.unwrap();
+        if delay <= 0.0 {
+            exit_delay.seconds = None;
+            commands.write_message(AppExit::Success);
+            #[cfg(target_arch = "wasm32")]
+            game_ended();
+        }
+//        println!("Delay left: {}", exit_delay.seconds.unwrap());
+        exit_delay.seconds = Some(delay-time.delta_secs());
     }
 }
 fn handle_exit(
     mut commands: Commands,
 )
 {
-    #[cfg(target_arch = "wasm32")]
-    game_ended();
     commands.write_message(AppExit::Success);
 }
+
 fn setup_configuration(
     mut configuration: ResMut<Configuration>,
 ) {
@@ -712,6 +756,7 @@ fn score_fallen_entities(
     ball_query: Query<(Entity, &BouncyBall, &mut Transform, &PointValue), (With<BouncyBall>, Without<ToyType>)>,
     toy_query: Query<(Entity, &Transform, &PointValue), (With<ToyType>, Without<BouncyBall>)>,
     mut scoreboard: ResMut<Scoreboard>,
+    mut exit_delay: ResMut<ExitDelay>,
 ) {
     scoreboard.toys = 0;
     // score and cleanup old toys and balls that are out of range
@@ -777,7 +822,8 @@ fn score_fallen_entities(
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {
                         if ball.live {
-                            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game Over. Press G to start new game".to_string() });
+                            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game Over.".to_string() });
+                            exit_delay.seconds = Some(5.0);
                         }
                     } else {
                         if CONTINUOUS_PLAY {
@@ -959,7 +1005,7 @@ fn create_countdown_board(
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 3.0, 8.0)))),
         MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
-        Collider::cuboid(0.25, 4.0, 4.0),
+        Collider::cuboid(0.25, 1.5, 4.0),
         Transform::from_xyz(14.5, 5.0, 0.0),
     ));
     // .with_children(|parent| {
