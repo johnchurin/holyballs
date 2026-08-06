@@ -1,15 +1,6 @@
 import init, { execute } from "../generated/holyballs.js";
 const button = document.getElementById("play");
 button.addEventListener("click", startGame);
-const sound = document.getElementById("sound");
-sound.addEventListener('change', function() {
-    const soundLabel = document.getElementById("soundLabel");
-    if (sound.checked) {
-        soundLabel.innerHTML = 'Sounds&nbspOn';
-    } else {
-        soundLabel.innerHTML = 'Sounds&nbspOff';
-    }
-});
 
 const elements = document.querySelectorAll('p');
 

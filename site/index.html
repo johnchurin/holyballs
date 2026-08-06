@@ -9,11 +9,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <script type="module" src="js/game.js" defer></script>
     <style>
-        body {
-            color: #333;
-            background-color: #f4f7f6;
-            padding: 2rem;
-        }
 
         /* Navigation Bar */
         header {
@@ -51,10 +46,6 @@
             color: #fff;
         }
 
-        main {
-            padding-left: 10rem;
-            padding-right: 10rem;
-        }
         /* Footer */
         footer {
             background-color: #2c3e50;
@@ -111,86 +102,95 @@
         </ul>
     </nav>
 </header>
-<main>
-<div class="container ">
-    <div class="container text-center p-4">
-        <div class="row">
-            <div class="col">
+<div class="container p-2">
+    <div class="row">
+        <div class="col col-2">
+            <div class="row p-1">
                 <button id="play" class="btn btn-danger text-nowrap">
-                    <span class="d-inline-flex align-items-center gap-2">
-                        <span id="spinner" style="display:none" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                        <span id="playLabel" role="status">Play</span>
-                    </span>
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <span id="spinner" style="display:none" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            <span id="playLabel" role="status">Play</span>
+                        </span>
                 </button>
             </div>
-            <div class="col">
-                <select class="form-select" name="level" id="level">
-                    <option value="1">Easy</option>
-                    <option value="5">Fun</option>
-                    <option value="9">Challenging</option>
-                    <option value="15">Holy Balls!</option>
-                </select>
+            <div class="row p-1">
+                <div class="d-inline-flex align-items-center gap-2">
+                    <label for="level">Level</label>
+                    <select class="form-select" name="level" id="level">
+                        <option value="1">Easy</option>
+                        <option value="5">Fun</option>
+                        <option value="9">Challenging</option>
+                        <option value="15">Holy Balls!</option>
+                    </select>
+                </div>
             </div>
-            <div class="col">
-                <input type="checkbox" class="btn-check" id="sound" name="sound" checked>
-                <label for="sound" class="btn btn-outline-primary" id="soundLabel">Sounds On</label><br>
+            <div class="row p-1">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="sound" name="sound" checked>
+                    <label for="sound" class="form-check-lebel" id="soundLabel">Game Sounds</label><br>
+                </div>
             </div>
+        </div>
+        <div class="col col-8">
+            <h3>Objective</h3>
+                <p class="fs-5">Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table,
+                    you lose points. When all the toys are off of the table, you move to the next level.</p>
+                <p>You don't control the ball directly but rather apply invisible forces to make the ball move.
+                    Gravity, friction, and momentum does the rest.</p>
+                <p>Beginner levels offer some aides to get you used to the game. For example, a magic fence is used to keep the ball on the table
+                    while allowing toys to fall through it. And, the levels are not timed.</p>
+                <p>As you advance to higher levels, there are more challenges: More and different toys.
+                Wind will be introduced on some levels. Higher levels are timed.</p>
+                <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls
+                    by hitting them with the red ball.</p>
+            <h3>Hardware Requirements</h3>
+                <p>Unlike many 3d games that require a beefy GPU The Holy Balls game uses relatively simple toy patterns
+                    like blocks, cones, and cylinders which require less of the GPU. This approach allows the game
+                    to run on modest (but modern) hardware such as laptops. A modern browser is also required.
+                    Does not work on Android or iPhone, yet.
+                </p>
+            <h3 id="how-to-play">How to Play</h3>
+                <p>Press the play button. This is a full screen game. When you intentionally end the game (escape key, close button, or X on the keyboard) or,
+                    the game times out or, you lost your balls, this screen reappears. You can play the game again, perhaps changing one or
+                    more of the game options.</p>
+                <p>When toys are dropped onto the table, some may fall off of the table all by themselves. You'll get credit for
+                    them the same as if you purposely shoved it/them off of the table.</p>
+                <p>Check the scoreboard for the number of balls available on each game level. If too many balls fall
+                    off the table: Game Over.</p>
+                <p>Balls and toys fall onto the table from random locations and random heights. So, no two games are exactly alike.</p>
+                <p>If a ball does fall off the table, you can recover it by using the space bar and mouse to bounce it back up.
+                    But, you'll have to be quick. Scoring only occurs when a ball or toy falls down to the (invisible) floor.</p>
+                <p>Use the O key (for "overhead") if you need a quick look at the table from the top down. In some cases, a
+                    toy could be hiding behind a barrier.</p>
+            <h3>User actions while in the game</h3>
+                <p>press the X key or click the Close button (upper right corner) to exit the game.</p>
+                <p>Push the ball around by holding down the left mouse button and moving the mouse.</p>
+                <p>You can also use the Arrow keys or 4, 8, 6, 2 on the keypad to push the ball around.</p>
+                <p>Use the Space Bar or keypad 5 to bounce the ball.</p>
+            <h3>Cheat Codes</h3>
+                <p>Press the G key to start a new game.</p>
+                <p>Press the N key to go to the next level. If the next level is timed, the timer starts now.</p>
+                <p>Press the R key to replay the same level.</p>
+            <h3>Contact</h3>
+                <p>Click the Facebook link in the upper right. Feedback is welcome.</p>
+            <h3>Found a bug?</h3>
+                <p>Feel free to file an issue on <a target="_blank" href="https://github.com/johnchurin/holyballs/issues">Github</a></p>
+            <h3 id="about">About</h3>
+                <p>I'm happily retired. Just doing this for fun. No commercial interest. No ads. Just the game. I don't and won't collect
+                    any info from you. </p>
+            <h3>License</h3>
+                <p>
+                    <a href="https://opensource.org/license/agpl-3-0" target="_blank">
+                        <img src="https://www.gnu.org.cach3.com/graphics/agplv3-155x51.png">
+                    </a>
+                </p>
+                <p></p>
+        </div>
+        <div class="col col-2">
+
         </div>
     </div>
 </div>
-<h3>Objective</h3>
-    <p class="fs-5">Use a red ball to knock various "toys" off of a table for points. If the red ball goes off the table,
-        you lose points. When all the toys are off of the table, you move to the next level.</p>
-    <p>You don't control the ball directly but rather apply invisible forces to make the ball move.
-        Gravity, friction, and momentum does the rest.</p>
-    <p>Beginner levels offer some aides to get you used to the game. For example, a magic fence is used to keep the ball on the table
-        while allowing toys to fall through it. And, the levels are not timed.</p>
-    <p>As you advance to higher levels, there are more challenges: More and different toys.
-    Wind will be introduced on some levels. Higher levels are timed.</p>
-    <p>Bonus points can be had for certain maneuvers on a toy. And, some toys have to be dislodged from the walls
-        by hitting them with the red ball.</p>
-<h3>Hardware Requirements</h3>
-    <p>Many 3d games require a beefy GPU. However, the live 3d Holy Balls game uses relatively simple toy patterns
-        like blocks, cones, and cylinders which require less of the GPU. This approach allows the game to run on modest
-        (but modern) hardware such as laptops. Does not work on Android or iPhone, yet.
-    </p>
-<h3 id="how-to-play">How to Play</h3>
-    <p>Press the play button. This is a full screen game. When you intentionally end the game (escape key, close button, or X on the keyboard) or,
-        the game times out or, you lost your balls, this screen reappears. You can play the game again, perhaps changing one or
-        more of the game options.</p>
-    <p>When toys are dropped onto the table, some may fall off of the table all by themselves. You'll get credit for
-        them the same as if you purposely shoved it/them off of the table.</p>
-    <p>Check the scoreboard for the number of balls available on each game level. If too many balls fall
-        off the table: Game Over.</p>
-    <p>Balls and toys fall onto the table from random locations and random heights. So, no two games are exactly alike.</p>
-    <p>If a ball does fall off the table, you can recover it by using the space bar and mouse to bounce it back up.
-        But, you'll have to be quick. Scoring only occurs when a ball or toy falls down to the (invisible) floor.</p>
-    <p>Use the O key (for "overhead") if you need a quick look at the table from the top down. In some cases, a
-        toy could be hiding behind a barrier.</p>
-<h3>User actions while in the game</h3>
-    <p>press the X key or click the Close button (upper right corner) to exit the game.</p>
-    <p>Push the ball around by holding down the left mouse button and moving the mouse.</p>
-    <p>You can also use the Arrow keys or 4, 8, 6, 2 on the keypad to push the ball around.</p>
-    <p>Use the Space Bar or keypad 5 to bounce the ball.</p>
-<h3>Cheat Codes</h3>
-    <p>Press the G key to start a new game.</p>
-    <p>Press the N key to go to the next level. If the next level is timed, the timer starts now.</p>
-    <p>Press the R key to replay the same level.</p>
-<h3>Contact</h3>
-    <p>Click the Facebook link in the upper right. Feedback is welcome.</p>
-<h3>Found a bug?</h3>
-    <p>Feel free to file an issue on <a target="_blank" href="https://github.com/johnchurin/holyballs/issues">Github</a></p>
-<h3 id="about">About</h3>
-    <p>I'm happily retired. Just doing this for fun. No commercial interest. No ads. Just the game. I don't and won't collect
-        any info from you. </p>
-<h3>License</h3>
-    <p>
-        <a href="https://opensource.org/license/agpl-3-0" target="_blank">
-            <img src="https://www.gnu.org.cach3.com/graphics/agplv3-155x51.png">
-        </a>
-    </p>
-<p></p>
-</main>
 <footer>
     <p>&copy; 2026&copy John Churin. All rights reserved.</p>
 </footer>
