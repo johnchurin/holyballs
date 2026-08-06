@@ -44,8 +44,8 @@ const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 const FENCE_COLOR: Color = Color::srgba(0.0, 0.9, 0.0, 0.4);
 const BLACK_DISK_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const WHITE_DISK_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-const SCOREBOARD_COLOR: Color = Color::srgb(0.5, 0.5, 0.0);
-//    const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const SCOREBOARD_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
+const TEXT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 //    const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
 const BALL_GROUP: Group = Group::GROUP_1;  // 0b0001
@@ -1142,7 +1142,7 @@ fn create_countdown_board(
         NotShadowCaster,
         Mesh3d::default(),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.0, 0.0, 0.0),
+            base_color: TEXT_COLOR,
             //            metallic: 0.8,
             perceptual_roughness: 0.3,
             reflectance: 0.8,
@@ -1953,7 +1953,7 @@ fn setup_game_board(
         NotShadowCaster,
         Mesh3d::default(),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 0.3, 0.8), // Blueish metallic
+            base_color: TEXT_COLOR,
             metallic: 0.8,             // Slightly less metallic to show some base color
             perceptual_roughness: 0.3, // Rougher to catch more light highlights
             reflectance: 0.8,
@@ -1967,18 +1967,6 @@ fn setup_game_board(
             scale: Vec3::splat(0.9),
         },
     ));
-    // Scoreboard
-    commands.spawn((
-        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
-        RigidBody::Fixed,
-        Friction::new(0.5),
-        Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
-        MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
-        Collider::cuboid(0.25, 4.0, 7.0),
-        Transform::from_xyz(-14.5, 5.0, 0.0),
-    ));
-
     // Help wall
     commands.spawn((
         HelpWall{},
@@ -1996,7 +1984,7 @@ fn setup_game_board(
         NotShadowCaster,
         Mesh3d::default(),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 0.3, 0.8), // Blueish metallic
+            base_color: TEXT_COLOR, // Blueish metallic
             metallic: 0.8,             // Slightly less metallic to show some base color
             perceptual_roughness: 0.3, // Rougher to catch more light highlights
             reflectance: 0.8,
@@ -2010,7 +1998,19 @@ fn setup_game_board(
             scale: Vec3::splat(0.6),
         },
     ));
-    // Scoring wall
+    // Scoreboard wall
+    commands.spawn((
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Friction::new(0.5),
+        Restitution::new(0.1),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
+        MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
+        Collider::cuboid(0.25, 4.0, 7.0),
+        Transform::from_xyz(-14.5, 5.0, 0.0),
+    ));
+
+    // Scoring text
     commands.spawn((
         ScoringWall{},
         Visibility::Hidden,
@@ -2028,7 +2028,7 @@ fn setup_game_board(
         NotShadowCaster,
         Mesh3d::default(),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 0.3, 0.8),
+            base_color: TEXT_COLOR,
             metallic: 0.8,
             perceptual_roughness: 0.3,
             reflectance: 0.8,
