@@ -672,17 +672,18 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
+        seconds: Some(Duration::from_secs(45)),
         balls: 3,
         barriers: 2,
         blocks: 6,
         ghosts: 2,
         cylinders: 3,
-        help: "More toys to push off the edge.".to_string(),
+        lifesavers: 2,
+        help: "More toys to push off the edge. Not much time to do it.".to_string(),
         ..GameLevel::default()
     });
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(10)),
+        seconds: Some(Duration::from_mins(5)),
         balls: 3,
         barriers: 2,
         blocks: 6,
@@ -693,7 +694,7 @@ fn setup_configuration(
         cylinders: 4,
         spikeys: 1,
         lifesavers: 2,
-        help: "Lots of toys.".to_string(),
+        help: "Lots of toys. Good luck.".to_string(),
         ..GameLevel::default()
     });
 }
