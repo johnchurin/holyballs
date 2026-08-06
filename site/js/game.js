@@ -22,16 +22,16 @@ async function startGame() {
     const container = document.getElementById("fullscreenContainer");
     const closeBtn = document.getElementById("closeBtn");
     const button1 = document.getElementById("play");
-    const playLabel = document.getElementById("playLabel");
+//    const playLabel = document.getElementById("playLabel");
     const spinner = document.getElementById("spinner");
+    button1.disabled = true;
+    spinner.style.display = "inline";
+//    playLabel.style.display = "inline";
     // We only need to init once, but it must be after some user input so now is a good time.
     if (!initDone) {
         await init();
         initDone = true;
     }
-    button1.disabled = true;
-    spinner.style.display = "block";
-    playLabel.style.display = "none";
     closeBtn.onclick = () => {
         const args = ["js", "exit"];
         execute(args);
@@ -79,7 +79,7 @@ function fullscreenchangeHandler(event) {
         const button = document.getElementById('play');
         // button.innerText = "Play";
         spinner.style.display = "none";
-        playLabel.style.display = "block";
+        playLabel.style.display = "inline";
         container.style.display = "none";
         button.disabled = false;
     }

@@ -578,11 +578,11 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(1)),
+        seconds: Some(Duration::from_secs(30)),
         balls: 3,
         barriers: 1,
         blocks: 2,
-        help: "Adding some time pressure, you only have one minute!".to_string(),
+        help: "Adding some time pressure, you only have 30 seconds!".to_string(),
         ..GameLevel::default()
     });
 
@@ -607,6 +607,23 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
+        seconds: Some(Duration::from_mins(2)),
+        balls: 3,
+        barriers: 3,
+        blocks: 2,
+        help: "Is there a toy hiding behind the barrier? Toggle the O key to check.".to_string(),
+        ..GameLevel::default()
+    });
+
+    configuration.add(GameLevel {
+        seconds: Some(Duration::from_mins(2)),
+        balls: 3,
+        barriers: 4,
+        disks: 2,
+        help: "More hiding places".to_string(),
+        ..GameLevel::default()
+    });
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(4)),
         balls: 3,
         barriers: 2,
@@ -627,7 +644,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
+        seconds: Some(Duration::from_mins(2)),
         balls: 3,
         barriers: 2,
         spikeys: 2,
@@ -1148,6 +1165,7 @@ fn create_barriers(
     //    asset_server: AssetServer,
 ) {
     let n = game_level.barriers;
+    let hy = if n > 2 { 1.0 } else { 0.25 };
     if n > 0 {
         // Barrier Left
         commands.spawn((
@@ -1155,9 +1173,9 @@ fn create_barriers(
             RigidBody::Fixed,
             Friction::new(0.0),
             Restitution::new(0.1),
-            Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, 0.5, 2.0)))),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, hy*2.0,2.0)))),
             MeshMaterial3d(materials.add(BARRIER_COLOR)),
-            Collider::cuboid(8.5, 0.25, 1.0),
+            Collider::cuboid(8.5, hy, 1.0),
             Transform::from_xyz(-4.0, 0.25, 0.0),
         ));
     }
@@ -1172,6 +1190,19 @@ fn create_barriers(
             MeshMaterial3d(materials.add(BARRIER_COLOR)),
             Collider::cuboid(1.0, 0.25, 10.0),
             Transform::from_xyz(5.0, 0.25, 0.0),
+        ));
+    }
+    if n > 3 {
+        // Barrier wall
+        commands.spawn((
+            Barrier {},
+            RigidBody::Fixed,
+            Friction::new(0.0),
+            Restitution::new(0.1),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 2.5, 20.0)))),
+            MeshMaterial3d(materials.add(BARRIER_COLOR)),
+            Collider::cuboid(0.5, 1.25, 10.0),
+            Transform::from_xyz(5.0, 1.25, 0.0),
         ));
     }
 }
@@ -1926,7 +1957,7 @@ fn setup_game_board(
             metallic: 0.8,             // Slightly less metallic to show some base color
             perceptual_roughness: 0.3, // Rougher to catch more light highlights
             reflectance: 0.8,
-            double_sided: true,
+            double_sided: false,
             cull_mode: None,
             ..default()
         })),
@@ -1969,7 +2000,7 @@ fn setup_game_board(
             metallic: 0.8,             // Slightly less metallic to show some base color
             perceptual_roughness: 0.3, // Rougher to catch more light highlights
             reflectance: 0.8,
-            double_sided: true,
+            double_sided: false,
             cull_mode: None,
             ..default()
         })),
@@ -2001,7 +2032,7 @@ fn setup_game_board(
             metallic: 0.8,
             perceptual_roughness: 0.3,
             reflectance: 0.8,
-            double_sided: true,
+            double_sided: false,
             cull_mode: None,
             ..default()
         })),
@@ -2052,7 +2083,7 @@ fn setup_game_board(
             text: "Holy Balls".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.4,
+                depth: 0.1,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -2065,7 +2096,7 @@ fn setup_game_board(
             metallic: 0.8,             // Slightly less metallic to show some base color
             perceptual_roughness: 0.3, // Rougher to catch more light highlights
             reflectance: 0.8,
-            double_sided: true,
+            double_sided: false,
             cull_mode: None,
             ..default()
         })),
