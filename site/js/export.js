@@ -1,16 +1,9 @@
-export function game_ended() {
-    console.log("Game Ended");
-    const container = document.getElementById("fullscreenContainer");
-    const spinner = document.getElementById("spinner");
-    const playLabel = document.getElementById("playLabel");
+export function console_message(msg) {
+    console.log(msg);
+}
+    export function game_ended() {
+    console.log("js: Game Ended");
     if (document.fullscreenElement) {
         document.exitFullscreen().then();
     }
-    console.log("In Game Ended");
-    const button = document.getElementById('play');
-    // button.innerText = "Play";
-    spinner.style.display = "none";
-    playLabel.style.display = "block";
-    container.style.display = "none";
-    button.disabled = false;
-}
+ }

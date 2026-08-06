@@ -1,6 +1,6 @@
 [package]
 name = "holyballs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -10,6 +10,8 @@ rand = "0.10.2"
 bevy_fontmesh = {version="0.6.0"}
 getrandom = { version = "0.4.3", features = ["wasm_js"] }
 wasm-bindgen = "0.2.126"
+crossfire = "3.1.19"
+clap = { version = "4.6.5", features = ["derive"] }
 
 
 [profile.dev.package."*"]

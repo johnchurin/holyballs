@@ -1,3 +1,4 @@
+#![feature(trivial_bounds)]
 use std::env;
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
@@ -16,10 +17,16 @@ use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
 use wasm_bindgen::prelude::wasm_bindgen;
+use std::sync::LazyLock;
+use bevy::asset::AssetMetaCheck;
+use crossfire::*;
+use crossfire::mpmc::Array;
+use clap::{Args, CommandFactory, Parser, Subcommand};
 
 #[wasm_bindgen(module = "/site/js/export.js")]
 extern "C" {
     fn game_ended();
+    fn console_message(msg: &str);
 }
 const BUMP: f32 = 2.5;
 
@@ -48,58 +55,62 @@ const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
 const CONTINUOUS_PLAY: bool = true;
 
+#[derive(Resource)]
+struct ExternalChannel {
+    tx: MAsyncTx<Array<Vec<String>>>,
+    rx: MAsyncRx<Array<Vec<String>>>,
+}
+
+impl ExternalChannel {
+    fn new() -> Self {
+        let (tx, rx) = mpmc::bounded_async::<Vec<String>>(3);
+        Self { tx, rx }
+    }
+    fn send(&self, message: Vec<String>) {
+        self.tx.try_send(message).expect("No tx channel");
+    }
+}
+static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { ExternalChannel::new() });
+
+#[wasm_bindgen]
+pub fn execute(
+    args: Vec<String>,
+) {
+    EXTERNAL_CHANNEL.send(args);
+//    console_message("Rust: In start game");
+}
 pub fn main() {
     let args: Vec<String> = env::args().collect();
     // The first element is always the path to the executable
     if args.len() > 0 {
-        println!("Executable path: {}", args[0]);
-        let sound = if args.len() > 1 {
-            if args[1].as_str().eq_ignore_ascii_case("true") {
-                true
-            } else {
-                false
-            }
-        } else {
-            true
-        };
-        let level: i32 = if args.len() > 2 {
-            args[2].parse().expect("Cannot parse level")
-        } else {
-            1
-        };
-        println!("Sound: {}, Level: {}", sound, level);
-        start_game(sound, level);
+        execute(args);
     }
 
-    // With arguments, we need to start the game
-    if args.len() > 1 {
-//        println!("First custom argument: {}", args[1]);
-    }
-}
-#[wasm_bindgen]
-pub fn start_game(
-    sound: bool,
-    starting_level: i32,
-) {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                canvas: Some("#game-canvas".into()),
-                title: "Holy Balls".into(),
-                fit_canvas_to_parent: true,
-                prevent_default_event_handling: false,
-                ..default()
-            }),
+        .add_plugins(DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    canvas: Some("#game-canvas".into()),
+                    title: "Holy Balls".into(),
+                    fit_canvas_to_parent: true,
+                    prevent_default_event_handling: false,
+                    ..default()
+                }),
             ..default()
-        }))
+            })
+            .set(AssetPlugin{
+                meta_check: AssetMetaCheck::Never,
+                ..default()
+            })
+        )
         // Initialize the Rapier physics engine
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(FontMeshPlugin::<StandardMaterial>::default())
-//        .add_systems(Startup, setup_window)
+        //        .add_systems(Startup, setup_window)
         .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(Scoreboard::new(sound, starting_level))
+        .insert_resource(Scoreboard::new(EXTERNAL_CHANNEL.rx.clone()))
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(ScoringHelpTimer::new(4.0))
@@ -119,6 +130,8 @@ pub fn start_game(
             impulse.run_if(input_just_pressed(KeyCode::ArrowRight)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad6)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowDown)),
+        ))
+        .add_systems(Update, (
             impulse.run_if(input_just_pressed(KeyCode::Numpad2)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowUp)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad8)),
@@ -132,7 +145,7 @@ pub fn start_game(
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
-            wait_for_exit,
+            check_external_channel,
         ))
         .add_systems(Update, (
             handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
@@ -140,6 +153,8 @@ pub fn start_game(
             handle_point_value_message,
             handle_activate_game,
             handle_impulse_message,
+        ))
+        .add_systems(Update, (
             handle_new_level,
             handle_sensor_events,
             handle_help_message,
@@ -157,7 +172,6 @@ pub fn start_game(
         .add_message::<PlayLevel>()
         .add_message::<SoundMessage>()
         .run();
-
 }
 #[derive(Resource)]
 struct ExitDelay {
@@ -363,15 +377,32 @@ struct Scoreboard {
     balls: i32,
     sound: bool,
     starting_level: i32,
+    rx: MAsyncRx<Array<Vec<String>>>,
 }
 
 impl Scoreboard {
-    fn new(sound: bool, starting_level: i32) -> Self {
-        Self { running: false, score: 0, level: starting_level-1, total: 0, toys: 0, balls: 0, sound, starting_level }
+    fn new(rx: MAsyncRx<Array<Vec<String>>>) -> Self {
+        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0, rx }
+    }
+    fn get_message(&mut self) -> Option<Vec<String>> {
+        let r = self.rx.try_recv();
+        if r.is_ok() {
+            Some(r.unwrap())
+        } else {
+            None
+        }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
         self.total += incr;
+    }
+    fn set_starting_level(&mut self, level: i32) {
+        self.level = level-1;
+        self.starting_level = level;
+    }
+
+    fn set_sound(&mut self, sound: bool) {
+        self.sound = sound;
     }
 
     fn use_a_ball(&mut self) {
@@ -425,26 +456,63 @@ fn setup_window(
     co.visible = false;
     co.grab_mode = CursorGrabMode::Locked;
 }
-
-static mut EXIT_NOW: bool = false;
-// When this reaches zero, exit immediately
-#[wasm_bindgen]
-pub fn exit_game() {
-    unsafe {
-        EXIT_NOW = true;
-    }
-    #[cfg(target_arch = "wasm32")]
-    game_ended();
+#[derive(Parser, Debug)]
+#[command()]
+struct ExecuteArgs {
+    #[command(subcommand)]
+    command: ExecuteCommands,
 }
-fn wait_for_exit(
+#[derive(Subcommand, Debug)]
+enum ExecuteCommands {
+    /// Start the game
+    Start(StartArgs),
+    /// Exiy the game
+    Exit {},
+}
+#[derive(Args, Debug)]
+struct StartArgs {
+    #[arg(short, long, default_value_t = false)]
+    sound: bool,
+
+    #[arg(short, long, default_value_t = 1)]
+    level: i32,
+}
+
+fn check_external_channel(
     time: Res<Time>,
     mut commands: Commands,
     mut exit_delay: ResMut<ExitDelay>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
-    unsafe {
-        if EXIT_NOW {
-            commands.write_message(AppExit::Success);
-            EXIT_NOW = false;
+    while let Some(message) = scoreboard.get_message() {
+//        println!("Received: {}", message);
+//        let message = vec!("xxx", "help", "start");
+//        let text = message.join(" ");
+//        console_message(format!("Rust: In check_external_channel: {}", text).as_str());
+        let cli = ExecuteArgs::try_parse_from(message);
+        if cli.is_ok() {
+            let mut cmd = ExecuteArgs::command();
+            // let help = cmd.render_long_help();
+            // console_message(help.to_string().as_str());
+            match cli.unwrap().command {
+                ExecuteCommands::Start(args) => {
+//                    console_message("Match on start");
+                    scoreboard.reset();
+                    scoreboard.set_starting_level(args.level);
+                    scoreboard.set_sound(args.sound);
+                    scoreboard.next_level();
+                    //    println!("Sending next level from start_new_game");
+                    commands.write_message(PlayLevel {});
+                }
+                ExecuteCommands::Exit {} => {
+//                    console_message("Match on exit");
+                    //                exit_delay.seconds = Some(0.0);
+                    #[cfg(target_arch = "wasm32")]
+                    game_ended();
+                }
+            }
+        } else {
+            console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
         }
     }
     // Delayed exit
@@ -452,19 +520,20 @@ fn wait_for_exit(
         let delay = exit_delay.seconds.unwrap();
         if delay <= 0.0 {
             exit_delay.seconds = None;
-            commands.write_message(AppExit::Success);
             #[cfg(target_arch = "wasm32")]
             game_ended();
+            #[cfg(not(target_arch = "wasm32"))]
+            commands.write_message(AppExit::Success);
+        } else {
+            exit_delay.seconds = Some(delay-time.delta_secs());
         }
-//        println!("Delay left: {}", exit_delay.seconds.unwrap());
-        exit_delay.seconds = Some(delay-time.delta_secs());
     }
 }
 fn handle_exit(
     mut commands: Commands,
 )
 {
-    commands.write_message(AppExit::Success);
+    execute(vec!("internal".to_string(),"exit".to_string(), ));
 }
 
 fn setup_configuration(
@@ -509,6 +578,15 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
+        seconds: Some(Duration::from_mins(1)),
+        balls: 3,
+        barriers: 1,
+        blocks: 2,
+        help: "Adding some time pressure, you only have one minute!".to_string(),
+        ..GameLevel::default()
+    });
+
+    configuration.add(GameLevel {
         seconds: Some(Duration::from_mins(3)),
         balls: 3,
         barriers: 2,
@@ -519,7 +597,7 @@ fn setup_configuration(
     });
 
     configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
+        seconds: Some(Duration::from_mins(2)),
         balls: 3,
         barriers: 2,
         blocks: 2,
@@ -650,10 +728,10 @@ fn update_countdown(
         countdown_board.reduce_countdown(time.delta());
         if !countdown_board.is_running() {
             scoreboard.stop();
-            commands.write_message(HelpMessage {
-                help_type: HelpType::Score,
-                text: "Time has expired. Game Over.".to_string()
-            });
+            commands.write_message(HelpMessage { help_type: HelpType::Next,
+                text: "Game Over.".to_string() });
+            commands.write_message(HelpMessage { help_type: HelpType::Score,
+                text: "You are out of time.".to_string() });
             // Wha Wha Wha them out
             commands.write_message(SoundMessage { sound_type: SoundType::GameOver });
             // Game over. Leave, but slowly
@@ -916,6 +994,7 @@ fn handle_sound(
     scoreboard: Res<Scoreboard>,
 ) {
     for event in messages.read() {
+        console_message("Sound playing");
         if scoreboard.sound {
             match event.sound_type {
                 SoundType::Win => {
@@ -1385,14 +1464,6 @@ fn create_dips(
                 ActiveEvents::COLLISION_EVENTS,
                 Transform::from_xyz(0.0, 0.2, 0.0),
             ));
-            parent.spawn((
-                SensorChild { next_color: WHITE_DISK_COLOR },
-                Collider::ball(0.7),
-                Sensor,
-                PointValue { value: 20 },
-                ActiveEvents::COLLISION_EVENTS,
-                Transform::from_xyz(0.0, -0.1, 0.0),
-            ));
         });
     }
 }
@@ -1682,7 +1753,6 @@ fn handle_new_level(
         if CONTINUOUS_PLAY {
             commands.write_message(BallMessage{});
         }
-        //        println!("Done creating toys");
     }
 }
 fn start_new_game(
@@ -2005,9 +2075,4 @@ fn setup_game_board(
             scale: Vec3::new(4.0, 4.0, 2.0),
         },
     ));
-    scoreboard.reset();
-    scoreboard.next_level();
-    //    println!("Sending next level from start_new_game");
-    commands.write_message(PlayLevel {});
-//    commands.write_message( HelpMessage{help_type: HelpType::Next, text: "Press the G key to start a new game".to_string()});
 }
