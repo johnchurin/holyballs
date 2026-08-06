@@ -49,7 +49,7 @@ jobs:
           mkdir ./binaryen
           wget -qO- https://github.com/WebAssembly/binaryen/releases/download/version_126/binaryen-version_126-arm64-macos.tar.gz | tar xvz --strip-components 1 -C ./binaryen binaryen-version_126
 
-      - name: Build Bevy Game for WASM
+      - name: Build Rust for WASM
         run: |
           cargo build --release --target wasm32-unknown-unknown
 
