@@ -507,11 +507,13 @@ fn check_external_channel(
                 ExecuteCommands::Exit {} => {
 //                    console_message("Match on exit");
                     //                exit_delay.seconds = Some(0.0);
+                    scoreboard.stop();
                     #[cfg(target_arch = "wasm32")]
                     game_ended();
                 }
             }
         } else {
+            #[cfg(target_arch = "wasm32")]
             console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
         }
     }
@@ -784,7 +786,7 @@ fn handle_mouse_move(
        if mouse_buttons.pressed(MouseButton::Left) {
             for (mut impulse, _ball) in balls.iter_mut() {
                 //                info!("Mouse moved: x = {}, y = {}", event.delta.x, event.delta.y);
-                impulse.impulse = Vec3::new(event.delta.x * 0.1, 0.0, event.delta.y * 0.1);
+                impulse.impulse = Vec3::new(event.delta.x * 0.1, 0.0, event.delta.y * 0.08);
             }
        }
     }
@@ -1012,6 +1014,7 @@ fn handle_sound(
     scoreboard: Res<Scoreboard>,
 ) {
     for event in messages.read() {
+        #[cfg(target_arch = "wasm32")]
         console_message("Sound playing");
         if scoreboard.sound {
             match event.sound_type {
