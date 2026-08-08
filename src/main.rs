@@ -1,5 +1,9 @@
 #![feature(trivial_bounds)]
-use std::env;
+use std::thread;
+use std::io::BufReader;
+use crate::fs::File;
+use std::{env, fs};
+use std::io::{self, Write};
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
 // Suppress console output
@@ -9,6 +13,7 @@ use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
+use std::path::Path;
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
@@ -21,7 +26,6 @@ use std::sync::LazyLock;
 use bevy::asset::AssetMetaCheck;
 use crossfire::*;
 use crossfire::mpmc::Array;
-use clap::{Args, CommandFactory, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 #[cfg(target_arch = "wasm32")]
@@ -59,16 +63,16 @@ const CONTINUOUS_PLAY: bool = true;
 
 #[derive(Resource)]
 struct ExternalChannel {
-    tx: MAsyncTx<Array<Vec<String>>>,
-    rx: MAsyncRx<Array<Vec<String>>>,
+    tx: MAsyncTx<Array<String>>,
+    rx: MAsyncRx<Array<String>>,
 }
 
 impl ExternalChannel {
     fn new() -> Self {
-        let (tx, rx) = mpmc::bounded_async::<Vec<String>>(3);
+        let (tx, rx) = mpmc::bounded_async::<String>(3);
         Self { tx, rx }
     }
-    fn send(&self, message: Vec<String>) {
+    fn send(&self, message: String) {
         self.tx.try_send(message).expect("No tx channel");
     }
 }
@@ -77,17 +81,32 @@ static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { External
 // This is where actions affecting the running game are processed.
 // We send a channel messaqe which is picked up within the scheduler loop.
 #[wasm_bindgen]
-pub fn execute(
-    args: Vec<String>,
+pub fn set_configuration(
+    args: String,
 ) {
     EXTERNAL_CHANNEL.send(args);
 //    console_message("Rust: In start game");
 }
 fn command_loop() {
 
+    loop {
+        print!("hb> ");
+
+        // 2. Flush stdout to ensure the text appears before waiting for input
+        io::stdout().flush().unwrap();
+
+        // 3. Read the line from the terminal
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Failed to read line");
+
+        // 4. Clean up whitespace/newlines
+        let command = input.trim();
+//        execute(command.to_string());
+        // Parse and execute here
+    }
 }
 
-fn scheduler() {
+fn start_bevy() {
     App::new()
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
@@ -180,12 +199,16 @@ pub fn main() {
     let args: Vec<String> = env::args().collect();
     // The first element is always the path to the executable
     if args.len() == 1 {
-        command_loop();
+        let handle = thread::spawn(|| {
+            command_loop();
+        });
     } else if args.len() > 1 {
-        execute(args);
+        let arg_string = args.join(" ");
+//        execute(arg_string);
     } else {
 
     }
+    start_bevy();    // Never returns until shutdown
 }
 #[derive(Resource)]
 struct ExitDelay {
@@ -216,7 +239,7 @@ impl GameLevelResource {
     }
 }
 #[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Asset, TypePath)]
 struct GameLevel {
     #[serde(skip_serializing_if = "Option::is_none")]
     seconds: Option<Duration>,
@@ -265,13 +288,19 @@ impl GameLevel {
 }
 #[derive(Resource)]
 #[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Asset, TypePath)]
 struct Configuration {
+    name: Option<String>,
+    description: Option<String>,
     levels: Vec<GameLevel>,
 }
 impl Configuration {
     fn new() -> Self {
-        Self { levels: Vec::new() }
+        Self {
+            levels: Vec::new(),
+            name: Some("Initial".to_string()),
+            ..Configuration::default()
+        }
     }
 
     fn add(&mut self, level: GameLevel) -> &mut Self {
@@ -280,7 +309,7 @@ impl Configuration {
     }
 
     fn get_game_level(&self, level: i32) -> &GameLevel {
-        // Level is 1 origin, levels Vec is zero origin, so level-1)
+        // Level is 1 origin, levels Vec is zero origin, so we return level-1)
         if level > self.levels.len() as i32 {
             // If beyond the end, just return the last toy level
             self.levels.get(self.levels.len() - 1usize).unwrap()
@@ -421,14 +450,14 @@ struct Scoreboard {
     balls: i32,
     sound: bool,
     starting_level: i32,
-    rx: MAsyncRx<Array<Vec<String>>>,
+    rx: MAsyncRx<Array<String>>,
 }
 
 impl Scoreboard {
-    fn new(rx: MAsyncRx<Array<Vec<String>>>) -> Self {
+    fn new(rx: MAsyncRx<Array<String>>) -> Self {
         Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0, rx }
     }
-    fn get_message(&mut self) -> Option<Vec<String>> {
+    fn get_message(&mut self) -> Option<String> {
         let r = self.rx.try_recv();
         if r.is_ok() {
             Some(r.unwrap())
@@ -500,27 +529,6 @@ fn setup_window(
     co.visible = false;
     co.grab_mode = CursorGrabMode::Locked;
 }
-#[derive(Parser, Debug)]
-#[command()]
-struct ExecuteArgs {
-    #[command(subcommand)]
-    command: ExecuteCommands,
-}
-#[derive(Subcommand, Debug)]
-enum ExecuteCommands {
-    /// Start the game
-    Start(StartArgs),
-    /// Exiy the game
-    Exit {},
-}
-#[derive(Args, Debug)]
-struct StartArgs {
-    #[arg(short, long, default_value_t = false)]
-    sound: bool,
-
-    #[arg(short, long, default_value_t = 1)]
-    level: i32,
-}
 
 fn check_external_channel(
     time: Res<Time>,
@@ -529,37 +537,32 @@ fn check_external_channel(
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     while let Some(message) = scoreboard.get_message() {
+//        commands.spawn(asset_server.load(filename));
+
+            //
 //        println!("Received: {}", message);
 //        let message = vec!("xxx", "help", "start");
 //        let text = message.join(" ");
 //        console_message(format!("Rust: In check_external_channel: {}", text).as_str());
-        let cli = ExecuteArgs::try_parse_from(message);
-        if cli.is_ok() {
-            let mut cmd = ExecuteArgs::command();
-            // let help = cmd.render_long_help();
-            // console_message(help.to_string().as_str());
-            match cli.unwrap().command {
-                ExecuteCommands::Start(args) => {
 //                    console_message("Match on start");
-                    scoreboard.reset();
-                    scoreboard.set_starting_level(args.level);
-                    scoreboard.set_sound(args.sound);
-                    scoreboard.next_level();
-                    //    println!("Sending next level from start_new_game");
-                    commands.write_message(PlayLevel {});
-                }
-                ExecuteCommands::Exit {} => {
-//                    console_message("Match on exit");
-                    //                exit_delay.seconds = Some(0.0);
-                    scoreboard.stop();
-                    #[cfg(target_arch = "wasm32")]
-                    game_ended();
-                }
-            }
-        } else {
-            #[cfg(target_arch = "wasm32")]
-            console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
-        }
+//                     scoreboard.reset();
+//                     scoreboard.set_starting_level(args.level);
+//                     scoreboard.set_sound(args.sound);
+//                     scoreboard.next_level();
+//                     //    println!("Sending next level from start_new_game");
+//                     commands.write_message(PlayLevel {});
+//                 }
+// //                    console_message("Match on exit");
+//                     //                exit_delay.seconds = Some(0.0);
+//                     scoreboard.stop();
+//                     #[cfg(target_arch = "wasm32")]
+//                     game_ended();
+//                 }
+//             }
+//         } else {
+//             #[cfg(target_arch = "wasm32")]
+//             console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
+//         }
     }
     // Delayed exit
     if exit_delay.seconds.is_some() {
@@ -579,176 +582,28 @@ fn handle_exit(
     mut commands: Commands,
 )
 {
-    execute(vec!("internal".to_string(),"exit".to_string(), ));
+//    execute("exit".to_string());
 }
 
 fn setup_configuration(
-    mut configuration: ResMut<Configuration>,
+//    mut configuration: ResMut<Configuration>,
+    mut commands: Commands,
 ) {
-    configuration.add(GameLevel {
-        balls: Some(5),
-        blocks: Some(1),
-        fences: Some(4),
-        help: "If you lose a ball over the edge, another one will fall automatically.".to_string(),
-        ..GameLevel::default()
-    });
+    // Only good for standalone (testing) so replace with AssetServer
+    let path = Path::new("../site/base.hb.json");
+    let file = File::open(path).expect("File open error");
+    let reader = BufReader::new(file);
+    let config: Result<Configuration> = serde_json::from_reader(reader);
 
-    configuration.add(GameLevel {
-        balls: Some(5),
-        fences: Some(3),
-        blocks: Some(2),
-        disks: Some(2),
-        help: "More toys to push off the edge.\n\
-        Caution: No fence on the front edge.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        fences: Some(1),
-        blocks: Some(1),
-        disks: Some(1),
-        help: "Fewer balls available now\n\
-        and, the levels are timed.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        barriers: Some(1),
-        blocks: Some(2),
-        help: "Use the space bar to bounce the ball over the barrier".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_secs(30)),
-        balls: Some(3),
-        barriers: Some(1),
-        blocks: Some(2),
-        help: "Adding some time pressure, you only have 30 seconds!".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_secs(90)),
-        balls: Some(3),
-        barriers: Some(2),
-        blacks: Some(1),
-        help: "Hit the top of the black disk to turn it white and\n\
-        get bonus points when you push it off the edge".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        barriers: Some(2),
-        blocks: Some(2),
-        wind: Some(Vec3::new(0.3, 0.0, 0.0)),
-        help: "This time with a light breeze coming out of the west".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        barriers: Some(3),
-        blocks: Some(2),
-        help: "Is there a toy hiding behind the barrier? Toggle the O key to check.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        barriers: Some(4),
-        disks: Some(2),
-        help: "More hiding places".to_string(),
-        ..GameLevel::default()
-    });
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(4)),
-        balls: Some(3),
-        barriers: Some(2),
-        targets: Some(1),
-        help: "Balls to the walls: Hit the disk on the scoreboard.\n\
-        If it lands on the table, you have to push it off the edge\n\
-        to get points.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
-        balls: Some(3),
-        barriers: Some(2),
-        ghosts: Some(4),
-        help: "Some ghost blocks. 3 minutes to clear the toys.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(2)),
-        balls: Some(3),
-        barriers: Some(2),
-        spikeys: Some(2),
-        help: "Spikey balls are a bit of a challenge to get over the edge.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
-        balls: Some(3),
-        barriers: Some(2),
-        lifesavers: Some(2),
-        help: "Put the ball in the lifesaver to earn bonus points.".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(3)),
-        balls: Some(3),
-        barriers: Some(2),
-        dips: Some(2),
-        help: "Put the ball in the dip to turn the piece white to\n\
-        get bonus points when you push it off the edge".to_string(),
-        ..GameLevel::default()
-    });
-
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_secs(60)),
-        balls: Some(3),
-        barriers: Some(2),
-        blocks: Some(6),
-        ghosts: Some(2),
-        cylinders: Some(3),
-        lifesavers: Some(2),
-        help: "More toys to push off the edge. Not much time to do it.".to_string(),
-        ..GameLevel::default()
-    });
-    configuration.add(GameLevel {
-        seconds: Some(Duration::from_mins(5)),
-        balls: Some(3),
-        barriers: Some(2),
-        blocks: Some(6),
-        ghosts: Some(4),
-        blacks: Some(3),
-        dips: Some(3),
-        targets: Some(3),
-        cylinders: Some(4),
-        spikeys: Some(1),
-        lifesavers: Some(2),
-        help: "Lots of toys. Good luck.".to_string(),
-        ..GameLevel::default()
-    });
+    commands.insert_resource(config.unwrap());
+    println!("Config file read and new config resource inserted");
     // Serialize it to a JSON string.
-    let j = serde_json::to_string_pretty(configuration.as_ref()).unwrap();
-
-    // Print, write to a file, or send to an HTTP server.
-    println!("{}", j);
-
+    // let j = serde_json::to_string_pretty(configuration.as_ref()).unwrap();
+    // let filename = "base.hb.json";
+    // fs::write(filename, j).expect("Error writing to json file");
+    //
+    // // Print, write to a file, or send to an HTTP server.
+    // println!("File {} created", filename);
 }
 fn clear_scoring_text(
     time: Res<Time>,
@@ -919,9 +774,9 @@ fn score_fallen_entities(
             if scoreboard.running {
                 scoreboard.hit(point_value.value);
                 if point_value.value > 0 {
-                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy overboard. You scored {} points!", point_value.value) });
+                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy over the edge. You scored {} points!", point_value.value) });
                 } else {
-                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy overboard. You lost {} points", -point_value.value) });
+                    commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Toy over the edge. You lost {} points", -point_value.value) });
                 }
                 if point_value.value != 0 && scoreboard.running {
                     commands.write_message(
@@ -965,9 +820,9 @@ fn score_fallen_entities(
                 scoreboard.hit(point_value.value);
                 if point_value.value != 0 {
                     if point_value.value > 0 {
-                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball overboard. You scored {} points", point_value.value) });
+                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball over the edge. You scored {} points", point_value.value) });
                     } else {
-                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball overboard. You lost {} points", -point_value.value) });
+                        commands.write_message(HelpMessage { help_type: HelpType::Score, text: format!("Ball over the edge. You lost {} points", -point_value.value) });
                     }
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {

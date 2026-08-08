@@ -1,6 +1,12 @@
 import init, { execute } from "../generated/holyballs.js";
 const button = document.getElementById("play");
-button.addEventListener("click", startGame);
+button.addEventListener("click", () => {
+    const container = document.getElementById("fullscreenContainer");
+    container.requestFullscreen().catch(err => {
+        console.error("Error attempting to enable fullscreen:", err);
+    });
+    startGame().then(r => {});
+});
 
 const elements = document.querySelectorAll('p');
 
@@ -24,13 +30,9 @@ async function startGame() {
         initDone = true;
     }
     closeBtn.onclick = () => {
-        const args = ["js", "exit"];
-        execute(args);
+        execute("end");
         console.log("Exiting Game");
     };
-    container.requestFullscreen().catch(err => {
-        console.error("Error attempting to enable fullscreen:", err);
-    });
 
     container.addEventListener("fullscreenchange", fullscreenchangeHandler);
 
@@ -43,12 +45,15 @@ async function startGame() {
     //     }
     // }
     const sound = document.getElementById("sound");
-    const level = document.getElementById("level").value;
-    const args = ["js", "start", "-l", String(level)];
+    const game = document.getElementById("game").value;
+    let soundParam;
     if (sound.checked) {
-        args.push("-s");
+        soundParam = "on";
+    } else {
+        soundParam = "off";
     }
-    execute(args);
+    execute("set sound " + soundParam);
+    execute("play");
     console.log("In start_game");
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
