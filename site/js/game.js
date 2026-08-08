@@ -30,8 +30,7 @@ async function startGame() {
         initDone = true;
     }
     closeBtn.onclick = () => {
-        const args = ["js", "exit"];
-        execute(args);
+        execute("end");
         console.log("Exiting Game");
     };
 
@@ -46,12 +45,15 @@ async function startGame() {
     //     }
     // }
     const sound = document.getElementById("sound");
-    const level = document.getElementById("level").value;
-    const args = ["js", "start", "-l", String(level)];
+    const game = document.getElementById("game").value;
+    let soundParam;
     if (sound.checked) {
-        args.push("-s");
+        soundParam = "on";
+    } else {
+        soundParam = "off";
     }
-    execute(args);
+    execute("set sound " + soundParam);
+    execute("play");
     console.log("In start_game");
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
