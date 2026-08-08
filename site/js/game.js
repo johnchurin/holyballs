@@ -1,6 +1,12 @@
 import init, { execute } from "../generated/holyballs.js";
 const button = document.getElementById("play");
-button.addEventListener("click", startGame);
+button.addEventListener("click", () => {
+    const container = document.getElementById("fullscreenContainer");
+    container.requestFullscreen().catch(err => {
+        console.error("Error attempting to enable fullscreen:", err);
+    });
+    startGame().then(r => {});
+});
 
 const elements = document.querySelectorAll('p');
 
@@ -28,9 +34,6 @@ async function startGame() {
         execute(args);
         console.log("Exiting Game");
     };
-    container.requestFullscreen().catch(err => {
-        console.error("Error attempting to enable fullscreen:", err);
-    });
 
     container.addEventListener("fullscreenchange", fullscreenchangeHandler);
 
