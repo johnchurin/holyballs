@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Holyballs build
+
+tasks:
+  default:
+    desc: Build and run local server on port 5000
+    cmds:
+      - cargo build --target wasm32-unknown-unknown --profile release
+      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/release/holyballs.wasm --target web
+      - powershell -Command "Start-Process chrome.exe ""http://localhost:5000"""
+    silent: false
+
+  deploy:
+    desc: Deploy site folder to google
+    cmds:
+      - firebase deploy --only hosting
+  start:
+    desc: Start local emulator on windows
+    cmds:
+      - powershell -Command "Start-ThreadJob -ScriptBlock { firebase emulators:start }"
+
