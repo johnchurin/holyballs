@@ -58,22 +58,49 @@ const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
 const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
 const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
-#[derive(Resource)]
-struct ExternalChannel {
-    tx: MAsyncTx<Array<String>>,
-    rx: MAsyncRx<Array<String>>,
+pub struct ExternalMessage {
 }
 
-impl ExternalChannel {
-    fn new() -> Self {
-        let (tx, rx) = mpmc::bounded_async::<String>(3);
-        Self { tx, rx }
+impl ExternalMessage {
+    pub fn new() -> Self {
+        Self{}
     }
-    fn send(&self, message: String) {
+}
+
+//#[derive(Resource)]
+pub struct ExternalProducer{
+    tx: MAsyncTx<Array<ExternalMessage>>,
+}
+impl ExternalProducer {
+    pub fn new(tx: MAsyncTx<Array<ExternalMessage>>) -> Self {
+        Self{tx}
+    }
+    pub fn send(&self, message: ExternalMessage) {
         self.tx.try_send(message).expect("No tx channel");
     }
 }
-static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { ExternalChannel::new() });
+
+#[derive(Resource)]
+pub struct ExternalConsumer {
+    rx: MAsyncRx<Array<ExternalMessage>>,
+}
+
+impl ExternalConsumer {
+    pub fn new(rx: MAsyncRx<Array<ExternalMessage>>) -> Self {
+        Self { rx }
+    }
+
+    pub fn try_read(&self) -> Option<ExternalMessage> {
+        let r = self.rx.try_recv();
+        if r.is_ok() {
+            let rx = r.unwrap();
+            Some(rx)
+        } else {
+            None
+        }
+    }
+}
+//static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { ExternalChannel::new() });
 
 // This is where actions affecting the running game are processed.
 // We send a channel messaqe which is picked up within the scheduler loop.
@@ -81,11 +108,11 @@ static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { External
 pub fn set_configuration(
     args: String,
 ) {
-    EXTERNAL_CHANNEL.send(args);
+//    EXTERNAL_CHANNEL.send(args);
 //    console_message("Rust: In start game");
 }
 
-pub fn start_bevy() {
+pub fn start_bevy(external_consumer: ExternalConsumer) {
     App::new()
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
@@ -110,7 +137,8 @@ pub fn start_bevy() {
 // cli only        .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(Scoreboard::new(EXTERNAL_CHANNEL.rx.clone()))
+        .insert_resource(external_consumer)
+        .insert_resource(Scoreboard::new())
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(ScoringHelpTimer::new(4.0))
@@ -165,6 +193,7 @@ pub fn start_bevy() {
         ))
         .add_message::<BallMessage>()
         .add_message::<PointValueMessage>()
+
         .add_message::<PropagateAssetColorMessage>()
         .add_message::<ActivateGameMessage>()
         .add_message::<ImpulseMessage>()
@@ -172,6 +201,7 @@ pub fn start_bevy() {
         .add_message::<PlayLevel>()
         .add_message::<SoundMessage>()
         .run();
+    println!("Exiting from app::run");
 }
 #[derive(Resource)]
 struct ExitDelay {
@@ -413,20 +443,11 @@ struct Scoreboard {
     balls: i32,
     sound: bool,
     starting_level: i32,
-    rx: MAsyncRx<Array<String>>,
 }
 
 impl Scoreboard {
-    fn new(rx: MAsyncRx<Array<String>>) -> Self {
-        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0, rx }
-    }
-    fn get_message(&mut self) -> Option<String> {
-        let r = self.rx.try_recv();
-        if r.is_ok() {
-            Some(r.unwrap())
-        } else {
-            None
-        }
+    fn new() -> Self {
+        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0 }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
@@ -497,12 +518,11 @@ fn check_external_channel(
     time: Res<Time>,
     #[cfg(not(target_arch = "wasm32"))]
     mut commands: Commands,
-    mut exit_delay: ResMut<ExitDelay>,
-    mut scoreboard: ResMut<Scoreboard>,
+    mut external_consumer: ResMut<ExternalConsumer>,
 ) {
-    while let Some(_message) = scoreboard.get_message() {
+    while let Some(message) = external_consumer.try_read() {
+        commands.write_message(AppExit::Success);
 //        commands.spawn(asset_server.load(filename));
-
             //
 //        println!("Received: {}", _message);
 //        let _message = vec!("xxx", "help", "start");
@@ -528,24 +548,12 @@ fn check_external_channel(
 //             console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
 //         }
     }
-    // Delayed exit
-    if exit_delay.seconds.is_some() {
-        let delay = exit_delay.seconds.unwrap();
-        if delay <= 0.0 {
-            exit_delay.seconds = None;
-            #[cfg(target_arch = "wasm32")]
-            game_ended();
-            #[cfg(not(target_arch = "wasm32"))]
-            commands.write_message(AppExit::Success);
-        } else {
-            exit_delay.seconds = Some(delay-time.delta_secs());
-        }
-    }
 }
 fn handle_exit(
-//    mut commands: Commands,
+   mut commands: Commands,
 )
 {
+    commands.write_message(AppExit::Success);
 //    execute("exit".to_string());
 }
 

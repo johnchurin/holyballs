@@ -16,7 +16,7 @@ tasks:
       - task: cli-build
       # Bevy requires assets be in same directory as executable
       # Copy from site
-      - cp -r ../../site .
+      - cp -r {{.USER_WORKING_DIR}}/site/assets .
       - ./holyballs_cli
 
   wasm-generated-clean:
