@@ -59,11 +59,13 @@ const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
 const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
 pub struct ExternalMessage {
+    pub action: String,
+    pub payload: Option<String>,
 }
 
 impl ExternalMessage {
-    pub fn new() -> Self {
-        Self{}
+    pub fn new(action: String, payload: Option<String>) -> Self {
+        Self{action, payload }
     }
 }
 
@@ -519,10 +521,34 @@ fn check_external_channel(
     #[cfg(not(target_arch = "wasm32"))]
     mut commands: Commands,
     mut external_consumer: ResMut<ExternalConsumer>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     while let Some(message) = external_consumer.try_read() {
-        commands.write_message(AppExit::Success);
-//        commands.spawn(asset_server.load(filename));
+        match message.action.as_str() {
+            "exit" => {
+                commands.write_message(AppExit::Success);
+            }
+            "load" => {
+                if message.payload.is_some() {
+                    let json = message.payload.unwrap();
+                    let config: Result<Configuration> = serde_json::from_str(json.as_str());
+                    commands.insert_resource(config.unwrap());
+                    println!("Config resource inserted");
+                    continue;
+                }
+            }
+            "play" => {
+                scoreboard.reset();
+                scoreboard.next_level();
+                //    println!("Sending next level from start_new_game");
+                commands.write_message(PlayLevel {});
+            }
+            _ => {
+                println!("Unknow action in external mmessage");
+            }
+        }
+
+        //        commands.spawn(asset_server.load(filename));
             //
 //        println!("Received: {}", _message);
 //        let _message = vec!("xxx", "help", "start");
@@ -1676,7 +1702,7 @@ fn start_new_game(
     scoreboard.next_level();
     //    println!("Sending next level from start_new_game");
     commands.write_message(PlayLevel {});
-    commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press the N key to start the first level".to_string() });
+//    commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press the N key to start the first level".to_string() });
 }
 
 fn start_next_level(
