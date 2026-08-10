@@ -45,13 +45,14 @@ async function startGame() {
     //     }
     // }
     const sound = document.getElementById("sound");
-    const game = document.getElementById("game").value;
+    const game_level = document.getElementById("game-level").value;
     let soundParam;
     if (sound.checked) {
         soundParam = "on";
     } else {
         soundParam = "off";
     }
+    // Needs work &&&&&&
     execute("set sound " + soundParam);
     execute("play");
     console.log("In start_game");

@@ -1,11 +1,6 @@
 #![feature(trivial_bounds)]
 use std::thread;
 use std::io::BufReader;
-use crate::fs::File;
-use std::{env, fs};
-use std::io::{self, Write};
-// Holy Balls 3d game
-// Copyright (C) 2026 John Churin
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;
@@ -16,7 +11,7 @@ use std::f32::consts::{FRAC_PI_2};
 use std::path::Path;
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
+use bevy::window::{CursorGrabMode, CursorOptions};
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
@@ -28,6 +23,10 @@ use crossfire::*;
 use crossfire::mpmc::Array;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
+
+// Holy Balls 3d game
+// Copyright (C) 2026 John Churin
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(module = "/site/js/export.js")]
 extern "C" {
@@ -59,8 +58,6 @@ const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
 const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
 const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
-const CONTINUOUS_PLAY: bool = true;
-
 #[derive(Resource)]
 struct ExternalChannel {
     tx: MAsyncTx<Array<String>>,
@@ -87,26 +84,8 @@ pub fn set_configuration(
     EXTERNAL_CHANNEL.send(args);
 //    console_message("Rust: In start game");
 }
-fn command_loop() {
 
-    loop {
-        print!("hb> ");
-
-        // 2. Flush stdout to ensure the text appears before waiting for input
-        io::stdout().flush().unwrap();
-
-        // 3. Read the line from the terminal
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).expect("Failed to read line");
-
-        // 4. Clean up whitespace/newlines
-        let command = input.trim();
-//        execute(command.to_string());
-        // Parse and execute here
-    }
-}
-
-fn start_bevy() {
+pub fn start_bevy() {
     App::new()
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
@@ -128,7 +107,7 @@ fn start_bevy() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(FontMeshPlugin::<StandardMaterial>::default())
         //        .add_systems(Startup, setup_window)
-        .add_systems(Startup, setup_configuration)
+// cli only        .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(Scoreboard::new(EXTERNAL_CHANNEL.rx.clone()))
@@ -193,22 +172,6 @@ fn start_bevy() {
         .add_message::<PlayLevel>()
         .add_message::<SoundMessage>()
         .run();
-}
-pub fn main() {
-    println!("In main");
-    let args: Vec<String> = env::args().collect();
-    // The first element is always the path to the executable
-    if args.len() == 1 {
-        let handle = thread::spawn(|| {
-            command_loop();
-        });
-    } else if args.len() > 1 {
-        let arg_string = args.join(" ");
-//        execute(arg_string);
-    } else {
-
-    }
-    start_bevy();    // Never returns until shutdown
 }
 #[derive(Resource)]
 struct ExitDelay {
@@ -281,15 +244,15 @@ impl GameLevel {
         if self.balls.is_some() {
             let b = self.balls.unwrap();
             if b < 1 {
-                return 3;
-            } else {return b};
+                3
+            } else { b }
         } else { 3 }
     }
 }
 #[derive(Resource)]
 #[derive(Default, Clone, Debug)]
 #[derive(Serialize, Deserialize, Asset, TypePath)]
-struct Configuration {
+pub struct Configuration {
     name: Option<String>,
     description: Option<String>,
     levels: Vec<GameLevel>,
@@ -303,7 +266,7 @@ impl Configuration {
         }
     }
 
-    fn add(&mut self, level: GameLevel) -> &mut Self {
+    fn _add(&mut self, level: GameLevel) -> &mut Self {
         self.levels.push(level);
         self
     }
@@ -469,12 +432,12 @@ impl Scoreboard {
         self.score += incr;
         self.total += incr;
     }
-    fn set_starting_level(&mut self, level: i32) {
+    fn _set_starting_level(&mut self, level: i32) {
         self.level = level-1;
         self.starting_level = level;
     }
 
-    fn set_sound(&mut self, sound: bool) {
+    fn _set_sound(&mut self, sound: bool) {
         self.sound = sound;
     }
 
@@ -515,7 +478,7 @@ impl Scoreboard {
 #[derive(Component)]
 struct CameraController {}
 
-fn setup_window(
+fn _setup_window(
     // mut win_query: Query<&mut Window, With<PrimaryWindow>>,
     mut co_query: Query<&mut CursorOptions>,
 ) {
@@ -532,17 +495,18 @@ fn setup_window(
 
 fn check_external_channel(
     time: Res<Time>,
+    #[cfg(not(target_arch = "wasm32"))]
     mut commands: Commands,
     mut exit_delay: ResMut<ExitDelay>,
     mut scoreboard: ResMut<Scoreboard>,
 ) {
-    while let Some(message) = scoreboard.get_message() {
+    while let Some(_message) = scoreboard.get_message() {
 //        commands.spawn(asset_server.load(filename));
 
             //
-//        println!("Received: {}", message);
-//        let message = vec!("xxx", "help", "start");
-//        let text = message.join(" ");
+//        println!("Received: {}", _message);
+//        let _message = vec!("xxx", "help", "start");
+//        let text = _message.join(" ");
 //        console_message(format!("Rust: In check_external_channel: {}", text).as_str());
 //                    console_message("Match on start");
 //                     scoreboard.reset();
@@ -579,32 +543,12 @@ fn check_external_channel(
     }
 }
 fn handle_exit(
-    mut commands: Commands,
+//    mut commands: Commands,
 )
 {
 //    execute("exit".to_string());
 }
 
-fn setup_configuration(
-//    mut configuration: ResMut<Configuration>,
-    mut commands: Commands,
-) {
-    // Only good for standalone (testing) so replace with AssetServer
-    let path = Path::new("../site/base.hb.json");
-    let file = File::open(path).expect("File open error");
-    let reader = BufReader::new(file);
-    let config: Result<Configuration> = serde_json::from_reader(reader);
-
-    commands.insert_resource(config.unwrap());
-    println!("Config file read and new config resource inserted");
-    // Serialize it to a JSON string.
-    // let j = serde_json::to_string_pretty(configuration.as_ref()).unwrap();
-    // let filename = "base.hb.json";
-    // fs::write(filename, j).expect("Error writing to json file");
-    //
-    // // Print, write to a file, or send to an HTTP server.
-    // println!("File {} created", filename);
-}
 fn clear_scoring_text(
     time: Res<Time>,
     mut timer: ResMut<ScoringHelpTimer>,
@@ -805,12 +749,7 @@ fn score_fallen_entities(
             text: "100 bonus points for clearing this level".to_string()
         });
         commands.write_message(SoundMessage { sound_type: SoundType::FinishLevel });
-        if CONTINUOUS_PLAY {
-            start_next_level(scoreboard, commands);
-        } else {
-            let text = format!("Press N to start level {}", scoreboard.level + 1);
-            commands.write_message(HelpMessage { help_type: HelpType::Next, text });
-        }
+        start_next_level(scoreboard, commands);
         return;
     }
     // Look for any fallen balls
@@ -838,14 +777,7 @@ fn score_fallen_entities(
                                 sound_type: if point_value.value < 0
                                 { SoundType::Lose } else { SoundType::Win }
                             });
-                        if CONTINUOUS_PLAY {
-                            commands.write_message(BallMessage {});
-                        } else {
-                            commands.write_message(HelpMessage {
-                                help_type: HelpType::Score,
-                                text: "Press Enter for another ball".to_string()
-                            });
-                        }
+                        commands.write_message(BallMessage {});
                     }
                 }
             }
@@ -1691,9 +1623,6 @@ fn handle_new_level(
         //         entity_cmds.despawn();
         //     }
         // }
-        if !CONTINUOUS_PLAY {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press Enter to drop a ball".to_string() });
-        }
         //        println!("Level: {}", scoreboard.level);
         commands.write_message(ActivateGameMessage {});
         let game_level = configuration.get_game_level(scoreboard.level);
@@ -1728,9 +1657,7 @@ fn handle_new_level(
         commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
         commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
         // Ready to drop a ball
-        if CONTINUOUS_PLAY {
-            commands.write_message(BallMessage{});
-        }
+        commands.write_message(BallMessage{});
     }
 }
 fn start_new_game(
@@ -1795,19 +1722,12 @@ fn handle_ball_message(
 }
 
 fn impulse(
-    mut balls: Query<(&mut ExternalImpulse, &BouncyBall), With<BouncyBall>>,
+    balls: Query<(&mut ExternalImpulse, &BouncyBall), With<BouncyBall>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
-    mut commands: Commands,
+//    mouse: Res<ButtonInput<MouseButton>>,
+//    mut commands: Commands,
 ) {
     // Just interested in the live ball
-    if !CONTINUOUS_PLAY {
-        let balls = balls.iter_mut();
-        if balls.len() == 0 {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press enter to get a fresh ball".to_string() });
-            return;
-        }
-    }
     for (mut impulse, ball) in balls {
         if ball.live {
             // See which key was pressed
@@ -1878,7 +1798,6 @@ fn setup_game_board(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    mut scoreboard: ResMut<Scoreboard>,
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
     // The countdown clock

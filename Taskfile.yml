@@ -3,23 +3,62 @@
 version: '3'
 
 vars:
-  GREETING: Holyballs build
+  GREETING: Holyballs build scripts
 
 tasks:
-  default:
+  cli-build:
+    cmds:
+      - cargo build --bin holyballs_cli
+
+  cli:
+    dir: target/debug
+    cmds:
+      - task: cli-build
+      # Bevy requires assets be in same directory as executable
+      # Copy from site
+      - cp -r ../../site .
+      - ./holyballs_cli
+
+  wasm-generated-clean:
+    cmds:
+      - rm site/generated
+
+  wasm-dev-clean:
+    desc: Clean target for wasm
+    cmds:
+      - task: wasm-generated-clean
+      - cargo clean --target wasm32-unknown-unknown --profile dev
+    silent: false
+
+  wasm-dev-build:
     desc: Build and run local server on port 5000
     cmds:
-      - cargo build --target wasm32-unknown-unknown --profile release
-      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/release/holyballs.wasm --target web
+      - cargo build --target wasm32-unknown-unknown --profile dev
+      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/debug/holyballs.wasm --target web
       - powershell -Command "Start-Process chrome.exe ""http://localhost:5000"""
     silent: false
 
-  deploy:
+#  wasm-start-emulator:
+#    desc: Start local emulator on windows
+#    cmds:
+#      - powershell -Command "Start-process firebase emulators:start"
+
+  wasm-release-clean:
+    desc: Clean target for wasm
+    cmds:
+      - cargo clean --target wasm32-unknown-unknown --profile release
+    silent: false
+
+  wasm-release-build:
+    desc: Build wasm for release and publication
+    cmds:
+      - cargo build --target wasm32-unknown-unknown --profile release
+      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/release/holyballs.wasm --target web
+    silent: false
+
+  wasm-publish:
     desc: Deploy site folder to google
     cmds:
       - firebase deploy --only hosting
-  start:
-    desc: Start local emulator on windows
-    cmds:
-      - powershell -Command "Start-ThreadJob -ScriptBlock { firebase emulators:start }"
+
 
