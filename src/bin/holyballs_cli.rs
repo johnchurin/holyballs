@@ -1,14 +1,8 @@
-use std::fs::File;
 use std::{fs, io};
-use std::io::{BufReader, Read, Write};
+use std::io::{Write};
 use std::path::Path;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
-use std::thread::{sleep, spawn};
-use std::time::Duration;
-use bevy::prelude::Commands;
+use std::thread::{spawn};
 use crossfire::mpmc;
-use serde_json::from_reader;
 use holyballs::*;
 
 pub fn main() {
@@ -16,7 +10,7 @@ pub fn main() {
     let external_producer = ExternalProducer::new(tx.clone());
     let external_consumer = ExternalConsumer::new(rx);
 
-    let h = spawn(move || {
+    let _h = spawn(move || {
             command_loop(external_producer);
         }
     );
@@ -44,12 +38,19 @@ fn command_loop(external_producer: ExternalProducer) {
             external_producer.send(ExternalMessage::new(String::from("play"), None))
         }
 
+        if args[0].eq_ignore_ascii_case("sound") {
+            let payload = if args.len() == 2 {Some(String::from(args[1]))} else {None};
+            external_producer.send(ExternalMessage::new(String::from("sound"), payload))
+        }
+
         if args[0].eq_ignore_ascii_case("load") {
-            if args.len() != 2 {
-                println!("Err: Specify filename");
-                continue;
-            }
-            let path = Path::new(args[1]);
+            let filename = if args.len() == 2 {
+                String::from(args[1])
+            } else {
+                String::from("assets/config/base.hb.json")
+            };
+            let path = Path::new(filename.as_str());
+            println!("Loading {}", path.display());
             let json = fs::read_to_string(path);
             if json.is_err() {
                 println!("Error opening cnfiguration file");

@@ -1,6 +1,4 @@
 #![feature(trivial_bounds)]
-use std::thread;
-use std::io::BufReader;
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;
@@ -8,7 +6,6 @@ use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
-use std::path::Path;
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::window::{CursorGrabMode, CursorOptions};
@@ -16,8 +13,6 @@ use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
-use wasm_bindgen::prelude::wasm_bindgen;
-use std::sync::LazyLock;
 use bevy::asset::AssetMetaCheck;
 use crossfire::*;
 use crossfire::mpmc::Array;
@@ -106,13 +101,13 @@ impl ExternalConsumer {
 
 // This is where actions affecting the running game are processed.
 // We send a channel messaqe which is picked up within the scheduler loop.
-#[wasm_bindgen]
-pub fn set_configuration(
-    args: String,
-) {
-//    EXTERNAL_CHANNEL.send(args);
-//    console_message("Rust: In start game");
-}
+// #[wasm_bindgen]
+// pub fn set_configuration(
+//     args: String,
+// ) {
+// //    EXTERNAL_CHANNEL.send(args);
+// //    console_message("Rust: In start game");
+// }
 
 pub fn start_bevy(external_consumer: ExternalConsumer) {
     App::new()
@@ -303,13 +298,12 @@ impl Configuration {
         self
     }
 
-    fn get_game_level(&self, level: i32) -> &GameLevel {
+    fn get_game_level(&self, level: i32) -> Option<&GameLevel> {
         // Level is 1 origin, levels Vec is zero origin, so we return level-1)
         if level > self.levels.len() as i32 {
-            // If beyond the end, just return the last toy level
-            self.levels.get(self.levels.len() - 1usize).unwrap()
+            None
         } else {
-            self.levels.get(level as usize - 1).unwrap()
+            Some(self.levels.get(level as usize - 1).unwrap())
         }
     }
 }
@@ -445,11 +439,12 @@ struct Scoreboard {
     balls: i32,
     sound: bool,
     starting_level: i32,
+    total_levels: i32,
 }
 
 impl Scoreboard {
     fn new() -> Self {
-        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0 }
+        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0, total_levels: 0 }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
@@ -470,7 +465,9 @@ impl Scoreboard {
     fn set_balls_count(&mut self, count: i32) {
         self.balls = count;
     }
-
+    fn set_total_levels(&mut self, total_levels: i32 ) {
+        self.total_levels = total_levels;
+    }
     fn stop(&mut self) {
         println!("stopping game");
         self.running = false;
@@ -481,7 +478,9 @@ impl Scoreboard {
     }
     fn next_level(&mut self) {
         self.score = 0;
-        self.level += 1;
+        if self.level < self.total_levels {
+            self.level += 1;
+        }
         //        self.balls = 3;
     }
     fn _same_level(&mut self) {
@@ -493,7 +492,7 @@ impl Scoreboard {
         println!("reset scoreboard");
         self.running = false;
         self.score = 0;
-        self.level = self.starting_level-1;
+        self.level = self.starting_level;
         self.total = 0;
         self.balls = 0;
     }
@@ -517,10 +516,10 @@ fn _setup_window(
 }
 
 fn check_external_channel(
-    time: Res<Time>,
+//    time: Res<Time>,
     #[cfg(not(target_arch = "wasm32"))]
     mut commands: Commands,
-    mut external_consumer: ResMut<ExternalConsumer>,
+    external_consumer: ResMut<ExternalConsumer>,
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     while let Some(message) = external_consumer.try_read() {
@@ -532,13 +531,39 @@ fn check_external_channel(
                 if message.payload.is_some() {
                     let json = message.payload.unwrap();
                     let config: Result<Configuration> = serde_json::from_str(json.as_str());
-                    commands.insert_resource(config.unwrap());
-                    println!("Config resource inserted");
-                    continue;
+                    if config.is_ok() {
+                        let config = config.unwrap();
+                        scoreboard.set_total_levels(config.levels.len() as i32);
+                        commands.insert_resource(config);
+                    }
+                    // println!("Config resource inserted");
                 }
+            }
+            "sound" => {
+                 if message.payload.is_some() {
+                     let payload = message.payload.unwrap();
+                     match payload.as_str() {
+                         "on" => {
+                             scoreboard.sound = true;
+                         }
+                         "off" => {
+                             scoreboard.sound = false;
+                         }
+                         _ => {
+                             println!("Sound setting must be on or off");
+                         }
+                     }
+                 } else {
+                     if scoreboard.sound {
+                         println!("Current sound is on");
+                     } else {
+                         println!("Current sound is off");
+                     }
+                 }
             }
             "play" => {
                 scoreboard.reset();
+                scoreboard.starting_level = 1;
                 scoreboard.next_level();
                 //    println!("Sending next level from start_new_game");
                 commands.write_message(PlayLevel {});
@@ -579,6 +604,8 @@ fn handle_exit(
    mut commands: Commands,
 )
 {
+    // Wasm we just tell js w're done. Engine stays running.
+    // Same for cli?
     commands.write_message(AppExit::Success);
 //    execute("exit".to_string());
 }
@@ -1619,11 +1646,6 @@ fn handle_new_level(
     mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
 ) {
     for _event in messages.read() {
-        if scoreboard.level < 1 {
-            game_level_res.clear_game_level();
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
-            return;
-        }
         // Remove old balls, toys, and barriers
         for entity in old_balls.iter_mut() {
             if let Ok(mut entity_cmds) = commands.get_entity(entity) {
@@ -1646,22 +1668,23 @@ fn handle_new_level(
                 entity_cmds.despawn();
             }
         }
-        // Remove old clocks and clock faces, if any
-        // for entity in clock_query.iter() {
-        //     if let Ok(mut entity_cmds) = commands.get_entity(entity) {
-        //         entity_cmds.despawn();
-        //     }
-        // }
-        // for entity in clock_face_query.iter() {
-        //     if let Ok(mut entity_cmds) = commands.get_entity(entity) {
-        //         entity_cmds.despawn();
-        //     }
-        // }
-        //        println!("Level: {}", scoreboard.level);
-        commands.write_message(ActivateGameMessage {});
+        if scoreboard.level < 1 {
+            println!("Level = {}", scoreboard.level);
+            game_level_res.clear_game_level();
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "Press N to start the first level".to_string() });
+            return;
+        }
+        println!("Fetching Level: {}", scoreboard.level);
         let game_level = configuration.get_game_level(scoreboard.level);
+        if game_level.is_none() {
+            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You win this game.".to_string() });
+            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game over.".to_string() });
+            scoreboard.stop();
+            return;
+        }
+        commands.write_message(ActivateGameMessage {});
+        let game_level = game_level.unwrap();
         game_level_res.set_game_level(game_level);
-        //        println!("Level {}, Toys {:?}", scoreboard.level, toys);
         create_fences(game_level, &mut commands, &mut meshes, &mut materials);
         create_blocks(game_level, &mut commands, &mut meshes, &mut materials);
         create_barriers(game_level, &mut commands, &mut meshes, &mut materials);
@@ -1821,8 +1844,8 @@ fn update_scoreboard(
     scoreboard: Res<Scoreboard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
-                            scoreboard.level,
+        text.text = format!("Game Level: {}/{}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
+                            scoreboard.level, scoreboard.total_levels,
                             scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
     };
