@@ -491,12 +491,15 @@ impl Scoreboard {
         println!("starting level {}", self.starting_level);
         self.running = true;
     }
-    fn next_level(&mut self) {
+    // set next level and return true if this is the last level
+    fn next_level(&mut self) -> bool{
         self.score = 0;
         if self.level < self.total_levels {
             self.level += 1;
+            false
+        } else {
+            true
         }
-        //        self.balls = 3;
     }
     fn _same_level(&mut self) {
         self.score = 0;
@@ -1704,9 +1707,6 @@ fn handle_new_level(
         println!("Fetching Level: {}", scoreboard.level);
         let game_level = configuration.get_game_level(scoreboard.level);
         if game_level.is_none() {
-            commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You win this game.".to_string() });
-            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game over.".to_string() });
-            scoreboard.stop();
             return;
         }
         commands.write_message(ActivateGameMessage {});
@@ -1759,9 +1759,17 @@ fn start_next_level(
     mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
 ) {
-    scoreboard.next_level();
-    //    println!("Sending next level from start_next_Level");
-    commands.write_message(PlayLevel {});
+    // Did we finish the last level?
+    if scoreboard.next_level() {
+        scoreboard.stop();
+        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You win this game.".to_string() });
+        commands.write_message(HelpMessage { help_type: HelpType::Next,
+            text: format!("Game over. You won {} points. Press X to exit.", scoreboard.total).to_string() });
+    } else {
+        //    println!("Sending next level from start_next_Level");
+        commands.write_message(PlayLevel {});
+    }
+
 }
 fn restart_same_level(
     //        mut scoreboard: ResMut<Scoreboard>,
