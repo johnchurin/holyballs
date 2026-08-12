@@ -1,0 +1,35 @@
+{
+  "name": "Base2, test",
+  "levels": [
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "blocks": 6,
+      "ghosts": 2,
+      "lifesavers": 2,
+      "cylinders": 3,
+      "help": "More toys to push off the edge. Not much time to do it."
+    },
+    {
+      "seconds": {
+        "secs": 300,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "blocks": 6,
+      "blacks": 3,
+      "dips": 3,
+      "targets": 3,
+      "spikeys": 1,
+      "ghosts": 4,
+      "lifesavers": 2,
+      "cylinders": 4,
+      "help": "Lots of toys. Good luck."
+    }
+  ]
+}

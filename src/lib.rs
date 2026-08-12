@@ -8,7 +8,7 @@ use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
-use bevy::window::{CursorGrabMode, CursorOptions};
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
@@ -211,6 +211,21 @@ struct ScoringHelpTimer {
     duration: f32,
     active: bool,
 }
+// A list of available games, deserialized from json
+#[derive(Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Asset, TypePath)]
+pub struct Menus {
+    pub title: String,
+    pub entries: Vec<Menu>,
+}
+#[derive(Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Asset, TypePath)]
+pub struct Menu {
+    pub name: String,
+    pub display: String,
+    pub file: String,
+}
+
 #[derive(Resource)]
 struct GameLevelResource {
     game_level: Option<GameLevel>,
@@ -450,8 +465,8 @@ impl Scoreboard {
         self.score += incr;
         self.total += incr;
     }
-    fn _set_starting_level(&mut self, level: i32) {
-        self.level = level-1;
+    fn set_starting_level(&mut self, level: i32) {
+        self.level = level;
         self.starting_level = level;
     }
 
@@ -504,6 +519,7 @@ fn _setup_window(
     // mut win_query: Query<&mut Window, With<PrimaryWindow>>,
     mut co_query: Query<&mut CursorOptions>,
 ) {
+    // mut win_query: Query<&mut Window, With<PrimaryWindow>>,
 //    let mut win = win_query.single_mut().unwrap();
     //        window.set_maximized(true);
     //        window.mode = WindowMode::Windowed;
@@ -521,6 +537,7 @@ fn check_external_channel(
     mut commands: Commands,
     external_consumer: ResMut<ExternalConsumer>,
     mut scoreboard: ResMut<Scoreboard>,
+    mut win_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     while let Some(message) = external_consumer.try_read() {
         match message.action.as_str() {
@@ -534,9 +551,21 @@ fn check_external_channel(
                     if config.is_ok() {
                         let config = config.unwrap();
                         scoreboard.set_total_levels(config.levels.len() as i32);
+                        {
+                            let name = &config.name;
+                            println!("{} levels in {} game", scoreboard.total_levels, name.clone().unwrap());
+                        }
                         commands.insert_resource(config);
                     }
                     // println!("Config resource inserted");
+                }
+            }
+            "fullscreen" => {
+                let mut win = win_query.single_mut().unwrap();
+                if message.payload == Some("on".to_string()) {
+                    win.mode = WindowMode::BorderlessFullscreen { 0: MonitorSelection::Current };
+                } else {
+                    win.mode = WindowMode::Windowed;
                 }
             }
             "sound" => {
@@ -563,8 +592,8 @@ fn check_external_channel(
             }
             "play" => {
                 scoreboard.reset();
-                scoreboard.starting_level = 1;
-                scoreboard.next_level();
+                scoreboard.set_starting_level(1);
+ //               scoreboard.next_level();
                 //    println!("Sending next level from start_new_game");
                 commands.write_message(PlayLevel {});
             }
@@ -969,7 +998,6 @@ fn handle_activate_game(
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     for _event in messages.read() {
-        println!("Next level key press");
         scoreboard.start();
     }
 }
@@ -1026,7 +1054,6 @@ fn create_countdown_board(
         Transform::from_xyz(14.5, 5.0, 0.0),
     ));
     // .with_children(|parent| {
-    //     parent.spawn((
     commands.spawn((
         ClockBoardFace {},
         Visibility::Hidden,
@@ -1844,7 +1871,7 @@ fn update_scoreboard(
     scoreboard: Res<Scoreboard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {}/{}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
+        text.text = format!("Game Level: {} / {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
                             scoreboard.level, scoreboard.total_levels,
                             scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);

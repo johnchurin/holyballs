@@ -1,10 +1,13 @@
 use std::{fs, io};
 use std::io::{Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread::{spawn};
 use crossfire::mpmc;
 use holyballs::*;
+use std::fs::File;
+use std::io::{BufReader};
 
+const CONFIG_DIR: &str = "assets/config";
 pub fn main() {
     let (tx, rx) = mpmc::bounded_async::<ExternalMessage>(3);
     let external_producer = ExternalProducer::new(tx.clone());
@@ -20,6 +23,18 @@ pub fn main() {
 
 // Bevy must be run from main thread so command loop is spawned.
 fn command_loop(external_producer: ExternalProducer) {
+    let m = get_menu();
+    if m.is_err() {
+        println!("Error opening menu file: {:?}", m.err());
+        return;
+    }
+    println!("Menu choices:");
+    let menus = &m.unwrap().entries;
+    for menu in menus {
+        println!("\t{}, {}, file: {}", menu.name, menu.display, menu.file);
+    }
+    println!();
+    let mut game_loaded = false;
     loop {
         print!("holyballs> ");
         let _ = io::stdout().flush();
@@ -30,36 +45,88 @@ fn command_loop(external_producer: ExternalProducer) {
         if args.is_empty() {
             continue;
         }
-        if args[0].eq_ignore_ascii_case("exit") {
+        let cmd = args[0].to_lowercase();
+        if cmd == "exit" {
             external_producer.send(ExternalMessage::new(String::from("exit"), None));
             return;
         }
-        if args[0].eq_ignore_ascii_case("play") {
-            external_producer.send(ExternalMessage::new(String::from("play"), None))
-        }
-
-        if args[0].eq_ignore_ascii_case("sound") {
-            let payload = if args.len() == 2 {Some(String::from(args[1]))} else {None};
-            external_producer.send(ExternalMessage::new(String::from("sound"), payload))
-        }
-
-        if args[0].eq_ignore_ascii_case("load") {
-            let filename = if args.len() == 2 {
-                String::from(args[1])
+        if cmd == "fullscreen" {
+            let mode = if args.len() > 1 {
+                Some(args[1].to_string())
             } else {
-                String::from("assets/config/base.hb.json")
+                Some("on".to_string())
             };
-            let path = Path::new(filename.as_str());
-            println!("Loading {}", path.display());
-            let json = fs::read_to_string(path);
-            if json.is_err() {
-                println!("Error opening cnfiguration file");
-                continue;
-            }
-            external_producer.send(ExternalMessage{action: "load".to_string(), payload: Some(json.unwrap())});
+            external_producer.send(ExternalMessage::new(String::from("fullscreen"), mode));
             continue;
         }
-        println!("I got: '{input}'");
-        //    let command = input.trim();
+        if cmd == "play" {
+            if game_loaded {
+                external_producer.send(ExternalMessage::new(String::from("play"), None));
+            } else {
+                println!("Load a game first");
+            }
+            continue;
+        }
+
+        if cmd == "sound" {
+            let payload = if args.len() == 2 {Some(String::from(args[1]))} else {None};
+            external_producer.send(ExternalMessage::new(String::from("sound"), payload));
+            continue;
+        }
+
+        if cmd == "load" {
+            let name = if args.len() == 2 {
+                String::from(args[1])
+            } else {
+                String::from("beginner")
+            };
+            let mut m: Option<&Menu> = None;
+            for menu in menus {
+                if menu.name == name {
+                    m = Some(menu);
+                    break;
+                }
+            }
+            if m.is_some() {
+                let menu = m.unwrap();
+                let pathbuf = resolve_path(Path::new(menu.file.as_str()));
+                println!{"File: {:?}", pathbuf};
+                let json = fs::read_to_string(pathbuf);
+                if json.is_err() {
+                    println!("Error opening menu file {:?}", json.err());
+                    continue;
+                }
+                external_producer.send(ExternalMessage{action: "load".to_string(), payload: Some(json.unwrap())});
+                game_loaded = true;
+            } else {
+                println!("{} not found in menu", name);
+            }
+            continue;
+        }
+        println!("Unknown command: '{cmd}'");
+    }
+}
+
+fn get_menu() -> Result<Menus, String> {
+    let pathbuf = resolve_path(Path::new("menu.json"));
+    let file = File::open(pathbuf);
+    if file.is_err() {
+        return Result::Err("Error opening menu file".to_string());
+    }
+    let r: serde_json::Result<Menus> = serde_json::from_reader(BufReader::new(file.unwrap()));
+    if r.is_ok() {
+        Result::Ok(r.unwrap())
+    } else {
+        println!("Error: {:?}", r.err());
+        Result::Err("Parse error:".to_string())
+    }
+}
+
+fn resolve_path(user_path: &Path) -> PathBuf {
+    if user_path.is_absolute() {
+        user_path.to_path_buf()
+    } else {
+        let default_dir = Path::new(CONFIG_DIR);
+        default_dir.join(user_path)
     }
 }

@@ -1,0 +1,15 @@
+{
+  "title": "Games for testing",
+  "entries": [
+    {
+      "name": "beginner",
+      "display": "For Beginners",
+      "file": "base.hb.json"
+    },
+    {
+      "name": "easy",
+      "display": "An easy game",
+      "file": "base2.hb.json"
+    }
+  ]
+}
