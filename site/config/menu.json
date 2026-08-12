@@ -3,12 +3,12 @@
   "entries": [
     {
       "name": "beginner",
-      "display": "For Beginners",
+      "display": "Beginners",
       "file": "base.hb.json"
     },
     {
       "name": "easy",
-      "display": "An easy game",
+      "display": "Easy",
       "file": "base2.hb.json"
     }
   ]

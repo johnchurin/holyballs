@@ -1,21 +1,93 @@
-import init, { execute } from "../generated/holyballs.js";
+import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
 button.addEventListener("click", () => {
     const container = document.getElementById("fullscreenContainer");
     container.requestFullscreen().catch(err => {
         console.error("Error attempting to enable fullscreen:", err);
     });
-    startGame().then(r => {});
+    init_wasm();
+    startGame();
 });
 
+// Loop through each <p> element and add the CSS class
 const elements = document.querySelectorAll('p');
-
-// Loop through each element and add the CSS class
 elements.forEach(element => {
     element.classList.add('fs-5');
 });
-var initDone = false;
-async function startGame() {
+const game_level = document.getElementById("game-level");
+game_level.addEventListener("change", function (event) {
+    init_wasm();
+    fetchConfig(event.target.value);
+});
+
+const soundElement = document.getElementById("sound");
+soundElement.addEventListener("change", function (event) {
+    let soundParam;
+    if (event.target.checked) {
+        soundParam = "on";
+    } else {
+        soundParam = "off";
+    }
+    init_wasm();
+    sound(soundParam);
+});
+
+const container = document.getElementById("fullscreenContainer");
+container.addEventListener("fullscreenchange", fullscreenchangeHandler);
+
+let initDone = false;
+// We only need to init once, but it must be after some user input so now is a good time.
+function init_wasm() {
+    if (!initDone) {
+        init().then(() => {
+            initDone = true;
+        });
+    }
+}
+
+// Load up the menu
+fetchMenu();
+
+function fetchMenu() {
+    const url = "config/menu.json";
+    let r;
+    fetch(url)
+        .then(function(response) {
+            console.log(response.statusText);
+            return response.json();
+        })
+        .then(function(json) {
+            const game_level = document.getElementById("game-level");
+            // Populate the select dropdown
+            let selected = true;
+            json.entries.forEach(item => {
+                const option = document.createElement("option");
+                option.text = item.display;
+                option.value = item.file;
+                option.selected = selected;
+                selected = false;
+                game_level.add(option);
+            });
+            game_level.selectedIndex = 0;
+        });
+}
+
+function fetchConfig(filename) {
+    const url = "config/" + filename;
+    console.log("load config file: " + url);
+    fetch(url).then(function(response) {
+        return response.text();
+    })
+    .then(function(json) {
+        return json;
+    })
+    .then(function(json) {
+        console.log("Type: " + typeof json);
+        load(json);
+    });
+}
+
+function startGame() {
     const container = document.getElementById("fullscreenContainer");
     const closeBtn = document.getElementById("closeBtn");
     const button1 = document.getElementById("play");
@@ -23,38 +95,11 @@ async function startGame() {
     const spinner = document.getElementById("spinner");
     button1.disabled = true;
     spinner.style.display = "inline";
-//    playLabel.style.display = "inline";
-    // We only need to init once, but it must be after some user input so now is a good time.
-    if (!initDone) {
-        await init();
-        initDone = true;
-    }
     closeBtn.onclick = () => {
-        execute("end");
+        end_play();
         console.log("Exiting Game");
     };
-
-    container.addEventListener("fullscreenchange", fullscreenchangeHandler);
-
-    // Resume audio conext after user input
-    // if (window.AudioContext || window.webkitAudioContext) {
-    //     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    //     console.log(ctx.state);
-    //     if (ctx.state === 'suspended') {
-    //         await ctx.resume();
-    //     }
-    // }
-    const sound = document.getElementById("sound");
-    const game_level = document.getElementById("game-level").value;
-    let soundParam;
-    if (sound.checked) {
-        soundParam = "on";
-    } else {
-        soundParam = "off";
-    }
-    // Needs work &&&&&&
-    execute("set sound " + soundParam);
-    execute("play");
+    play();
     console.log("In start_game");
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");

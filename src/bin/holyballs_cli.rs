@@ -7,7 +7,7 @@ use holyballs::*;
 use std::fs::File;
 use std::io::{BufReader};
 
-const CONFIG_DIR: &str = "assets/config";
+const CONFIG_DIR: &str = "config";
 pub fn main() {
     let (tx, rx) = mpmc::bounded_async::<ExternalMessage>(3);
     let external_producer = ExternalProducer::new(tx.clone());
@@ -18,7 +18,6 @@ pub fn main() {
         }
     );
     start_bevy(external_consumer);
-    //    h.join().expect("Command loop failed");
 }
 
 // Bevy must be run from main thread so command loop is spawned.
@@ -80,7 +79,7 @@ fn command_loop(external_producer: ExternalProducer) {
             } else {
                 String::from("beginner")
             };
-            let mut m: Option<&Menu> = None;
+            let mut m: Option<&MenuItem> = None;
             for menu in menus {
                 if menu.name == name {
                     m = Some(menu);

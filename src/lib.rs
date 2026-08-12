@@ -22,12 +22,7 @@ use serde_json::Result;
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(module = "/site/js/export.js")]
-extern "C" {
-    fn game_ended();
-    fn console_message(msg: &str);
-}
+
 const BUMP: f32 = 2.5;
 
 const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
@@ -97,17 +92,6 @@ impl ExternalConsumer {
         }
     }
 }
-//static EXTERNAL_CHANNEL: LazyLock<ExternalChannel> = LazyLock::new(|| { ExternalChannel::new() });
-
-// This is where actions affecting the running game are processed.
-// We send a channel messaqe which is picked up within the scheduler loop.
-// #[wasm_bindgen]
-// pub fn set_configuration(
-//     args: String,
-// ) {
-// //    EXTERNAL_CHANNEL.send(args);
-// //    console_message("Rust: In start game");
-// }
 
 pub fn start_bevy(external_consumer: ExternalConsumer) {
     App::new()
@@ -216,11 +200,11 @@ struct ScoringHelpTimer {
 #[derive(Serialize, Deserialize, Asset, TypePath)]
 pub struct Menus {
     pub title: String,
-    pub entries: Vec<Menu>,
+    pub entries: Vec<MenuItem>,
 }
 #[derive(Default, Clone, Debug)]
 #[derive(Serialize, Deserialize, Asset, TypePath)]
-pub struct Menu {
+pub struct MenuItem {
     pub name: String,
     pub display: String,
     pub file: String,
@@ -536,7 +520,6 @@ fn _setup_window(
 
 fn check_external_channel(
 //    time: Res<Time>,
-    #[cfg(not(target_arch = "wasm32"))]
     mut commands: Commands,
     external_consumer: ResMut<ExternalConsumer>,
     mut scoreboard: ResMut<Scoreboard>,
@@ -600,36 +583,14 @@ fn check_external_channel(
                 //    println!("Sending next level from start_new_game");
                 commands.write_message(PlayLevel {});
             }
+            // End the game but don't exit the app
+            "end" => {
+                scoreboard.stop();
+            }
             _ => {
                 println!("Unknow action in external mmessage");
             }
         }
-
-        //        commands.spawn(asset_server.load(filename));
-            //
-//        println!("Received: {}", _message);
-//        let _message = vec!("xxx", "help", "start");
-//        let text = _message.join(" ");
-//        console_message(format!("Rust: In check_external_channel: {}", text).as_str());
-//                    console_message("Match on start");
-//                     scoreboard.reset();
-//                     scoreboard.set_starting_level(args.level);
-//                     scoreboard.set_sound(args.sound);
-//                     scoreboard.next_level();
-//                     //    println!("Sending next level from start_new_game");
-//                     commands.write_message(PlayLevel {});
-//                 }
-// //                    console_message("Match on exit");
-//                     //                exit_delay.seconds = Some(0.0);
-//                     scoreboard.stop();
-//                     #[cfg(target_arch = "wasm32")]
-//                     game_ended();
-//                 }
-//             }
-//         } else {
-//             #[cfg(target_arch = "wasm32")]
-//             console_message(format!("Execute: {}", cli.err().unwrap()).as_str());
-//         }
     }
 }
 fn handle_exit(
@@ -944,8 +905,6 @@ fn handle_sound(
     scoreboard: Res<Scoreboard>,
 ) {
     for event in messages.read() {
-        #[cfg(target_arch = "wasm32")]
-        console_message("Sound playing");
         if scoreboard.sound {
             match event.sound_type {
                 SoundType::Win => {
