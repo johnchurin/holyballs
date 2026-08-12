@@ -1749,10 +1749,11 @@ fn start_new_game(
     mut commands: Commands,
 ) {
     scoreboard.reset();
-    scoreboard.next_level();
+    let end = scoreboard.next_level();
     //    println!("Sending next level from start_new_game");
-    commands.write_message(PlayLevel {});
-//    commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Press the N key to start the first level".to_string() });
+    if !end {
+        commands.write_message(PlayLevel {});
+    }
 }
 
 fn start_next_level(
