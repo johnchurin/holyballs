@@ -1,0 +1,55 @@
+{
+  "name": "Fun",
+  "levels": [
+    {
+      "seconds": {
+        "secs": 240,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "targets": 1,
+      "help": "Balls to the walls: Hit the disk on the scoreboard.\nIf it lands on the table, you have to push it off the edge\nto get points."
+    },
+    {
+      "seconds": {
+        "secs": 180,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "ghosts": 4,
+      "help": "Some ghost blocks. 3 minutes to clear the toys."
+    },
+    {
+      "seconds": {
+        "secs": 180,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "dips": 2,
+      "help": "Put the ball in the dip to turn the piece white to\nget bonus points when you push it off the edge"
+    },
+    {
+      "seconds": {
+        "secs": 120,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "spikeys": 2,
+      "help": "Spikey balls are a bit of a challenge to get over the edge."
+    },
+    {
+      "seconds": {
+        "secs": 180,
+        "nanos": 0
+      },
+      "balls": 3,
+      "barriers": 2,
+      "lifesavers": 2,
+      "help": "Put the ball in the lifesaver to earn bonus points."
+    }
+  ]
+}

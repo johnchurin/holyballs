@@ -4,12 +4,22 @@
     {
       "name": "beginner",
       "display": "Beginners",
-      "file": "base.hb.json"
+      "file": "beginner.hb.json"
     },
     {
       "name": "easy",
       "display": "Easy",
-      "file": "base2.hb.json"
+      "file": "easy.hb.json"
+    },
+    {
+      "name": "fun",
+      "display": "Fun",
+      "file": "fun.hb.json"
+    },
+    {
+      "name": "challenge",
+      "display": "Challenge",
+      "file": "challenge.hb.json"
     }
   ]
 }

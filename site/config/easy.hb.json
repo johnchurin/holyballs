@@ -1,0 +1,28 @@
+{
+  "name": "Easy",
+  "levels": [
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "balls": 3,
+      "blocks": 3,
+      "disks": 3,
+      "ghosts": 3,
+      "help": "More toys, less time"
+    },
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "balls": 4,
+      "blocks": 4,
+      "disks": 4,
+      "ghosts": 3,
+      "cylinders": 3,
+      "help": "Even more toys"
+    }
+  ]
+}
