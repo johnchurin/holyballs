@@ -2,22 +2,50 @@ use std::{fs, io};
 use std::io::{Write};
 use std::path::{Path, PathBuf};
 use std::thread::{spawn};
-use crossfire::mpmc;
+use crossfire::{mpmc, MAsyncTx};
 use holyballs::*;
 use std::fs::File;
 use std::io::{BufReader};
+use std::sync::OnceLock;
+use crossfire::mpmc::Array;
 
 const CONFIG_DIR: &str = "config";
+static TX: OnceLock<MAsyncTx<Array<ExternalMessage>>> = OnceLock::new();
+
 pub fn main() {
     let (tx, rx) = mpmc::bounded_async::<ExternalMessage>(3);
     let external_producer = ExternalProducer::new(tx.clone());
+
     let external_consumer = ExternalConsumer::new(rx);
+    let external_reply = ExternalReply::new(reply_handler);
+    TX.get_or_init(|| {
+        tx.clone()
+    });
 
     let _h = spawn(move || {
             command_loop(external_producer);
         }
     );
-    start_bevy(external_consumer);
+    start_bevy(external_consumer, external_reply);
+}
+
+fn reply_handler(message: ExternalMessage)
+{
+    let tx_handle = TX.get();
+    if tx_handle.is_some() {
+        let tx = tx_handle.unwrap();
+
+        match message.action.as_str() {
+            "game_ended" => {
+                let message = ExternalMessage { action: "exit".to_string(), payload: None };
+
+                tx.try_send(message).expect("No tx channel");
+            }
+            _ => {
+                println!("Invalid reply message from game: {:?}", message.action);
+            }
+        }
+    }
 }
 
 // Bevy must be run from main thread so command loop is spawned.

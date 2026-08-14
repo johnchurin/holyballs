@@ -71,6 +71,18 @@ impl ExternalProducer {
         self.tx.try_send(message).expect("No tx channel");
     }
 }
+#[derive(Resource)]
+pub struct ExternalReply {
+    callback: fn(ExternalMessage)
+}
+impl ExternalReply {
+    pub fn new(callback: fn(ExternalMessage)) -> Self{
+        Self{callback}
+    }
+    pub fn reply(&self, message: ExternalMessage) {
+        (self.callback)(message);
+    }
+}
 
 #[derive(Resource)]
 pub struct ExternalConsumer {
@@ -78,7 +90,8 @@ pub struct ExternalConsumer {
 }
 
 impl ExternalConsumer {
-    pub fn new(rx: MAsyncRx<Array<ExternalMessage>>) -> Self {
+    pub fn new(rx: MAsyncRx<Array<ExternalMessage>>) -> Self
+    {
         Self { rx }
     }
 
@@ -91,9 +104,17 @@ impl ExternalConsumer {
             None
         }
     }
+    // pub fn set_callback<F>(&mut self, cb: F)
+    // where
+    //     F: Option<Arc<dyn Fn(ExternalMessage) + Send + Sync>>,
+    // {
+    //     self.callback = Some(Arc::new(cb));
+    // }
+
+    // Send a reply back to the producer.
 }
 
-pub fn start_bevy(external_consumer: ExternalConsumer) {
+pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalReply) {
     App::new()
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
@@ -119,6 +140,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer) {
         .add_systems(Startup, setup_game_board)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(external_consumer)
+        .insert_resource(external_reply)
         .insert_resource(Scoreboard::new())
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
@@ -149,11 +171,14 @@ pub fn start_bevy(external_consumer: ExternalConsumer) {
             restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
             update_scoreboard.run_if(resource_changed::<Scoreboard>),
             update_countdown_face.run_if(resource_changed::<CountdownBoard>),
+            delayed_exit,
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
         .add_systems(Update, update_countdown)
         .add_systems(Update, (
             clear_scoring_text,
+        ))
+        .add_systems(Update, (
             check_external_channel,
         ))
         .add_systems(Update, (
@@ -521,7 +546,7 @@ fn _setup_window(
 fn check_external_channel(
 //    time: Res<Time>,
     mut commands: Commands,
-    external_consumer: ResMut<ExternalConsumer>,
+    external_consumer: Res<ExternalConsumer>,
     mut scoreboard: ResMut<Scoreboard>,
     mut win_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
@@ -584,7 +609,7 @@ fn check_external_channel(
                 commands.write_message(PlayLevel {});
             }
             // End the game but don't exit the app
-            "end" => {
+            "end_play" => {
                 scoreboard.stop();
             }
             _ => {
@@ -593,14 +618,27 @@ fn check_external_channel(
         }
     }
 }
+fn delayed_exit(
+    time: Res<Time>,
+    mut exit_delay: ResMut<ExitDelay>,
+    external_reply: Res<ExternalReply>,
+) {
+    if exit_delay.seconds.is_some() {
+        exit_delay.seconds = Some(exit_delay.seconds.unwrap() - time.delta_secs());
+        if exit_delay.seconds.unwrap() <= 0.0 {
+            handle_exit(external_reply);
+            exit_delay.seconds = None;
+        }
+    }
+}
 fn handle_exit(
-   mut commands: Commands,
+//   mut commands: Commands,
+   external_reply: Res<ExternalReply>,
 )
 {
     // Wasm we just tell js w're done. Engine stays running.
     // Same for cli?
-    commands.write_message(AppExit::Success);
-//    execute("exit".to_string());
+    external_reply.reply(ExternalMessage{action: "game_ended".to_string(), payload: None});
 }
 
 fn clear_scoring_text(
@@ -803,7 +841,7 @@ fn score_fallen_entities(
             text: "100 bonus points for clearing this level".to_string()
         });
         commands.write_message(SoundMessage { sound_type: SoundType::FinishLevel });
-        start_next_level(scoreboard, commands);
+        start_next_level(scoreboard, commands, exit_delay);
         return;
     }
     // Look for any fallen balls
@@ -1718,13 +1756,15 @@ fn start_new_game(
 fn start_next_level(
     mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
+    mut exit_delay: ResMut<ExitDelay>,
 ) {
     // Did we finish the last level?
     if scoreboard.next_level() {
         scoreboard.stop();
-        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You win this game.".to_string() });
+        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You won this game.".to_string() });
         commands.write_message(HelpMessage { help_type: HelpType::Next,
-            text: format!("Game over. You won {} points. Press X to exit.", scoreboard.total).to_string() });
+            text: format!("Game over. You won {} points.", scoreboard.total).to_string() });
+            exit_delay.seconds = Some(7.0);
     } else {
         //    println!("Sending next level from start_next_Level");
         commands.write_message(PlayLevel {});

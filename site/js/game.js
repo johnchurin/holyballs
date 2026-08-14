@@ -1,52 +1,51 @@
 import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
 button.addEventListener("click", () => {
+    const spinner = document.getElementById("spinner");
+    spinner.style.display = "inline";
     const container = document.getElementById("fullscreenContainer");
     container.requestFullscreen().catch(err => {
         console.error("Error attempting to enable fullscreen:", err);
     });
-    init_wasm();
-    startGame();
+    initWasm(startGame);
 });
-
-// Loop through each <p> element and add the CSS class
-const elements = document.querySelectorAll('p');
-elements.forEach(element => {
-    element.classList.add('fs-5');
-});
-const game_level = document.getElementById("game-level");
-game_level.addEventListener("change", function (event) {
-    init_wasm();
-    fetchConfig(event.target.value);
-});
-
-const soundElement = document.getElementById("sound");
-soundElement.addEventListener("change", function (event) {
-    let soundParam;
-    if (event.target.checked) {
-        soundParam = "on";
-    } else {
-        soundParam = "off";
+const closeBtn = document.getElementById("closeBtn");
+closeBtn.onclick = () => {
+    end_play();
+    cleanup_after_play();
+    if (document.exitFullscreen) {
+        document.exitFullscreen().then(r => {}); // Modern standard
     }
-    init_wasm();
-    sound(soundParam);
-});
+    console.log("Exiting Game");
+};
+// Load up the menu
+fetchMenu();
 
 const container = document.getElementById("fullscreenContainer");
 container.addEventListener("fullscreenchange", fullscreenchangeHandler);
-
+const game_level = document.getElementById("game-level");
+var jsonConfig = "none";
+game_level.addEventListener("change", (event) => {
+    fetchConfig(event.target.value);
+});
 let initDone = false;
 // We only need to init once, but it must be after some user input so now is a good time.
-function init_wasm() {
-    if (!initDone) {
-        init().then(() => {
-            initDone = true;
-        });
+function initWasm(callback) {
+    if (initDone) {
+        callback();
+    } else {
+        initDone = true;
+        init()
+            .then(() => {
+                callback();
+            })
+            .catch(error => {
+                console.error("Failed to initialize WASM module:", error);
+            })
+        ;
     }
 }
 
-// Load up the menu
-fetchMenu();
 
 function fetchMenu() {
     const url = "config/menu.json";
@@ -69,13 +68,17 @@ function fetchMenu() {
                 game_level.add(option);
             });
             game_level.selectedIndex = 0;
+            // Get the first item loaded.
+            const event = new Event('change', {bubbles: true});
+            game_level.dispatchEvent(event);
         });
 }
 
-function fetchConfig(filename) {
+function fetchConfig(filename)  {
     const url = "config/" + filename;
     console.log("load config file: " + url);
-    fetch(url).then(function(response) {
+    fetch(url)
+    .then(function(response) {
         return response.text();
     })
     .then(function(json) {
@@ -83,28 +86,44 @@ function fetchConfig(filename) {
     })
     .then(function(json) {
         console.log("Type: " + typeof json);
-        load(json);
+        jsonConfig = json;
     });
 }
 
 function startGame() {
+    console.log("In startGame");
     const container = document.getElementById("fullscreenContainer");
-    const closeBtn = document.getElementById("closeBtn");
     const button1 = document.getElementById("play");
-//    const playLabel = document.getElementById("playLabel");
-    const spinner = document.getElementById("spinner");
     button1.disabled = true;
-    spinner.style.display = "inline";
-    closeBtn.onclick = () => {
-        end_play();
-        console.log("Exiting Game");
-    };
+    load(jsonConfig);
+    const soundElement = document.getElementById("sound");
+    let soundParam;
+    if (soundElement.checked) {
+        soundParam = "on";
+    } else {
+        soundParam = "off";
+    }
+    sound(soundParam);
     play();
-    console.log("In start_game");
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
     canvas.focus();
     console.log("Focus set");
+}
+function cleanup_after_play() {
+    console.log("cleanup_after_play");
+   const container = document.getElementById("fullscreenContainer");
+    const spinner = document.getElementById("spinner");
+    const playLabel = document.getElementById("playLabel");
+    const button = document.getElementById('play');
+    spinner.style.display = "none";
+    playLabel.style.display = "inline";
+    container.style.display = "none";
+    button.disabled = false;
+    // if (container.exitFullscreen) {
+    //     container.exitFullscreen().then(r => {}); // Modern standard
+    // }
+
 }
 function fullscreenchangeHandler(event) {
     // document.fullscreenElement will point to the element that
@@ -114,15 +133,7 @@ function fullscreenchangeHandler(event) {
         console.log(`entered fullscreen mode.`);
     } else {
         console.log("Leaving fullscreen mode.");
-        console.log("js: Game Ended");
-        const container = document.getElementById("fullscreenContainer");
-        const spinner = document.getElementById("spinner");
-        const playLabel = document.getElementById("playLabel");
-        const button = document.getElementById('play');
-        // button.innerText = "Play";
-        spinner.style.display = "none";
-        playLabel.style.display = "inline";
-        container.style.display = "none";
-        button.disabled = false;
+        end_play();
+        cleanup_after_play();
     }
 }
