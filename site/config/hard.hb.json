@@ -1,10 +1,10 @@
 {
-  "name": "Challenge",
-  "background_color": "#95D5B2",
-  "wall_color": "#2D6A4F",
-  "table_color": "#FFB703",
-  "fence_color": "#FFB70370",
-  "barrier_color": "#E63946",
+  "name": "Hard",
+  "background_color": "#FDF0D5",
+  "wall_color": "#7CFF6B",
+  "table_color": "#00E5FF",
+  "fence_color": "#00E5FF70",
+  "barrier_color": "#FF5DA2",
   "levels": [
     {
       "seconds": {

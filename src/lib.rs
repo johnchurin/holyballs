@@ -35,11 +35,11 @@ const BOX_COLOR_TRANSPARENT: Color = Color::srgba(0.0, 0.0, 1.0, 0.2);
 const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const TARGET_COLOR: Color = Color::srgb(255.0 / 255.0, 105.0 / 255.0, 180.0 / 255.0);
-const FLOOR_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
+const TABLE_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 const FENCE_COLOR: Color = Color::srgba(0.0, 0.9, 0.0, 0.4);
 const BLACK_DISK_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const WHITE_DISK_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-const SCOREBOARD_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
+const WALL_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
 const TEXT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 //    const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
@@ -104,14 +104,6 @@ impl ExternalConsumer {
             None
         }
     }
-    // pub fn set_callback<F>(&mut self, cb: F)
-    // where
-    //     F: Option<Arc<dyn Fn(ExternalMessage) + Send + Sync>>,
-    // {
-    //     self.callback = Some(Arc::new(cb));
-    // }
-
-    // Send a reply back to the producer.
 }
 
 pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalReply) {
@@ -174,9 +166,12 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             delayed_exit,
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
-        .add_systems(Update, update_countdown)
         .add_systems(Update, (
-            clear_scoring_text,
+             update_countdown,
+             clear_scoring_text,
+             update_background_color,
+             update_table_color,
+             update_wall_color,
         ))
         .add_systems(Update, (
             check_external_channel,
@@ -306,6 +301,12 @@ impl GameLevel {
 pub struct Configuration {
     name: Option<String>,
     description: Option<String>,
+    background_color: Option<String>,
+    title_color: Option<String>,
+    table_color: Option<String>,
+    barrier_color: Option<String>,
+    fence_color: Option<String>,
+    wall_color: Option<String>,
     levels: Vec<GameLevel>,
 }
 impl Configuration {
@@ -314,6 +315,42 @@ impl Configuration {
             levels: Vec::new(),
             name: Some("Initial".to_string()),
             ..Configuration::default()
+        }
+    }
+
+    fn get_background_color(&self) -> Color {
+        if self.background_color.is_some() {
+            Srgba::hex(self.background_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            BACKGROUND_COLOR
+        }
+    }
+    fn get_table_color(&self) -> Color {
+        if self.table_color.is_some() {
+            Srgba::hex(self.table_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            TABLE_COLOR
+        }
+    }
+    fn get_barrier_color(&self) -> Color {
+        if self.barrier_color.is_some() {
+            Srgba::hex(self.barrier_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            BARRIER_COLOR
+        }
+    }
+    fn get_fence_color(&self) -> Color {
+        if self.fence_color.is_some() {
+            Srgba::hex(self.fence_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            FENCE_COLOR
+        }
+    }
+    fn get_wall_color(&self) -> Color {
+        if self.wall_color.is_some() {
+            Srgba::hex(self.wall_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            WALL_COLOR
         }
     }
 
@@ -397,6 +434,12 @@ struct ClockBoardFace {}
 #[derive(Component)]
 struct ScoringWall {}
 
+#[derive(Component)]
+struct Walls {}
+
+#[derive(Component)]
+struct Table {}
+
 #[derive(Component, Clone, Copy, Debug)]
 struct BouncyBall {
     live: bool,
@@ -414,16 +457,8 @@ struct PointValue {
     value: i32,
 }
 
-// enum FenceType {
-//     Back,
-//     Left,
-//     Right,
-//     Front
-// }
 #[derive(Component)]
-struct Fence {
-    //        fence_type: FenceType,
-}
+struct Fence {}
 
 #[derive(Component)]
 struct ToyType {
@@ -1044,12 +1079,13 @@ fn create_countdown_board(
     let font = asset_server.load("fonts/digital_clock.ttf");
     commands.spawn((
         ClockBoard {},
+        Walls{},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 3.0, 8.0)))),
-        MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
         Collider::cuboid(0.25, 1.5, 4.0),
         Transform::from_xyz(14.5, 5.0, 0.0),
     ));
@@ -1091,9 +1127,10 @@ fn create_barriers(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    //    asset_server: AssetServer,
+    configuration: &Res<Configuration>,
 ) {
     if game_level.barriers.is_some() {
+        let color = configuration.get_barrier_color();
         let count = game_level.barriers.unwrap();
         let hy = if count > 2 { 1.0 } else { 0.25 };
         if count > 0 {
@@ -1104,7 +1141,7 @@ fn create_barriers(
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, hy * 2.0, 2.0)))),
-                MeshMaterial3d(materials.add(BARRIER_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(8.5, hy, 1.0),
                 Transform::from_xyz(-4.0, 0.25, 0.0),
             ));
@@ -1117,7 +1154,7 @@ fn create_barriers(
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 0.5, 20.0)))),
-                MeshMaterial3d(materials.add(BARRIER_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(1.0, 0.25, 10.0),
                 Transform::from_xyz(5.0, 0.25, 0.0),
             ));
@@ -1130,7 +1167,7 @@ fn create_barriers(
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 2.5, 20.0)))),
-                MeshMaterial3d(materials.add(BARRIER_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(0.5, 1.25, 10.0),
                 Transform::from_xyz(5.0, 1.25, 0.0),
             ));
@@ -1143,9 +1180,11 @@ fn create_fences(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    configuration: &Res<Configuration>,
 ) {
     if game_level.fences.is_some() {
         let count = game_level.fences.unwrap();
+        let color = configuration.get_fence_color();
         if count == 1 || count == 3 || count == 4 {
             commands.spawn((
                 CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
@@ -1155,7 +1194,7 @@ fn create_fences(
                 Friction::new(0.5),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0 - 0.25, 1.0, 0.25 / 2.0)))),
-                MeshMaterial3d(materials.add(FENCE_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(12.5 - 0.25, 0.5, 0.125 / 2.0),
                 Transform::from_xyz(0.0, 0.5, -10.0),
             ));
@@ -1169,7 +1208,7 @@ fn create_fences(
                 Friction::new(0.5),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25 / 2.0, 1.0, 20.0 - 0.25)))),
-                MeshMaterial3d(materials.add(FENCE_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(0.125 / 2.0, 0.5, 10.0 - 0.125),
                 Transform::from_xyz(12.5 - 0.125, 0.5, 0.0),
             ));
@@ -1183,7 +1222,7 @@ fn create_fences(
                 Friction::new(0.5),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0 - 0.25, 1.0, 0.25 / 2.0)))),
-                MeshMaterial3d(materials.add(FENCE_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(12.5 - 0.25, 0.5, 0.125 / 2.0),
                 Transform::from_xyz(0.0, 0.5, 10.0),
             ));
@@ -1197,7 +1236,7 @@ fn create_fences(
                 Friction::new(0.5),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25 / 2.0, 1.0, 20.0 - 0.25)))),
-                MeshMaterial3d(materials.add(FENCE_COLOR)),
+                MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(0.125 / 2.0, 0.5, 10.0 - 0.25),
                 Transform::from_xyz(-12.5 + 0.125, 0.5, 0.0),
             ));
@@ -1655,6 +1694,49 @@ fn create_cylinders(
         }
     }
 }
+
+fn update_background_color(
+    configuration: Res<Configuration>,
+//    clear_color: ResMut<ClearColor>,
+    mut commands: Commands,
+) {
+    if configuration.background_color.is_some() {
+        let color = configuration.get_background_color();
+        commands.insert_resource(ClearColor(color));
+    }
+}
+
+fn update_table_color(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<&MeshMaterial3d<StandardMaterial>, With<Table>>,
+    configuration: Res<Configuration>,
+) {
+    if configuration.table_color.is_some() {
+        for handle in &query {
+            let mat = materials.get_mut(handle);
+            if mat.is_some() {
+                let mut mat = mat.unwrap();
+                mat.base_color = configuration.get_table_color();
+            }
+        }
+    }
+}
+fn update_wall_color(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<&MeshMaterial3d<StandardMaterial>, With<Walls>>,
+    configuration: Res<Configuration>,
+) {
+    if configuration.wall_color.is_some() {
+        for handle in &query {
+            let mat = materials.get_mut(handle);
+            if mat.is_some() {
+                let mut mat = mat.unwrap();
+                mat.base_color = configuration.get_wall_color();
+            }
+        }
+    }
+}
+
 fn handle_new_level(
     mut messages: MessageReader<PlayLevel>,
     configuration: Res<Configuration>,
@@ -1671,6 +1753,7 @@ fn handle_new_level(
     fence_query: Query<Entity, With<Fence>>,
     //    clock_query: Query<Entity, With<ClockBoard>>,
     mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
+//    mut clear_color: ResMut<ClearColor>,
 ) {
     for _event in messages.read() {
         // Remove old balls, toys, and barriers
@@ -1709,9 +1792,9 @@ fn handle_new_level(
         commands.write_message(ActivateGameMessage {});
         let game_level = game_level.unwrap();
         game_level_res.set_game_level(game_level);
-        create_fences(game_level, &mut commands, &mut meshes, &mut materials);
-        create_blocks(game_level, &mut commands, &mut meshes, &mut materials);
-        create_barriers(game_level, &mut commands, &mut meshes, &mut materials);
+        create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
+        create_blocks(game_level, &mut commands, &mut meshes, &mut materials, );
+        create_barriers(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
         create_disks(game_level, &mut commands, &mut meshes, &mut materials);
         create_cones(game_level, &mut commands, &mut meshes, &mut materials);
         create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server);
@@ -1958,12 +2041,13 @@ fn setup_game_board(
     ));
     // Scoreboard wall
     commands.spawn((
+        Walls{},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
-        MeshMaterial3d(materials.add(SCOREBOARD_COLOR)),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
         Collider::cuboid(0.25, 4.0, 7.0),
         Transform::from_xyz(-14.5, 5.0, 0.0),
     ));
@@ -2023,14 +2107,15 @@ fn setup_game_board(
         Transform::from_xyz(0.0, 20.0, 10.0),
     ));
 
-    // Game Surface, the top of the surface is at y=0.0
+    // Table. the top of the surface is at y=0.0
     commands.spawn((
+        Table{},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 0.5, 20.0)))),
-        MeshMaterial3d(materials.add(FLOOR_COLOR)),
+        MeshMaterial3d(materials.add(TABLE_COLOR)),
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));

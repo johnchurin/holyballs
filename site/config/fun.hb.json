@@ -1,29 +1,33 @@
 {
   "name": "Fun",
+  "background_color": "#FFE66D",
+  "wall_color": "#FF3B30",
+  "table_color": "#FF9500",
+  "fence_color": "#FF950070",
+  "barrier_color": "#2EC4B6",
   "levels": [
     {
       "seconds": {
-        "secs": 240,
+        "secs": 60,
         "nanos": 0
       },
       "balls": 3,
-      "barriers": 2,
       "targets": 1,
       "help": "Balls to the walls: Hit the disk on the scoreboard.\nIf it lands on the table, you have to push it off the edge\nto get points."
     },
     {
       "seconds": {
-        "secs": 180,
+        "secs": 60,
         "nanos": 0
       },
       "balls": 3,
       "barriers": 2,
       "ghosts": 4,
-      "help": "Some ghost blocks. 3 minutes to clear the toys."
+      "help": "Some ghost blocks. 1 minute to clear the toys."
     },
     {
       "seconds": {
-        "secs": 180,
+        "secs": 60,
         "nanos": 0
       },
       "balls": 3,
@@ -33,7 +37,7 @@
     },
     {
       "seconds": {
-        "secs": 120,
+        "secs": 60,
         "nanos": 0
       },
       "balls": 3,
@@ -43,13 +47,22 @@
     },
     {
       "seconds": {
-        "secs": 180,
+        "secs": 60,
         "nanos": 0
       },
       "balls": 3,
       "barriers": 2,
       "lifesavers": 2,
       "help": "Put the ball in the lifesaver to earn bonus points."
+    },
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "balls": 3,
+      "targets": 3,
+      "help": "Remember, if it lands on the table, you still have to push\nit off the edgeto get points."
     }
   ]
 }

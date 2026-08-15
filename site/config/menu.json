@@ -20,6 +20,11 @@
       "name": "challenge",
       "display": "Challenge",
       "file": "challenge.hb.json"
+    },
+    {
+      "name": "hard",
+      "display": "Hard",
+      "file": "hard.hb.json"
     }
   ]
 }

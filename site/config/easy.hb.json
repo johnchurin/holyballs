@@ -1,5 +1,10 @@
 {
   "name": "Easy",
+  "background_color": "#00D1FF",
+  "wall_color": "#00FFA3",
+  "table_color": "#A259FF",
+  "fence_color": "#A259FF70",
+  "barrier_color": "#FFD166",
   "levels": [
     {
       "seconds": {
