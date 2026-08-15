@@ -1,4 +1,4 @@
-import init, { sound, load, play, end_play, gamename } from "../generated/holyballs_wasm.js";
+import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
 button.addEventListener("click", () => {
     const spinner = document.getElementById("spinner");
@@ -14,7 +14,7 @@ closeBtn.onclick = () => {
     end_play();
     cleanup_after_play();
     if (document.exitFullscreen) {
-        document.exitFullscreen().then(r => {}); // Modern standard
+        document.exitFullscreen().then(); // Modern standard
     }
     console.log("Exiting Game");
 };
@@ -25,10 +25,8 @@ const container = document.getElementById("fullscreenContainer");
 container.addEventListener("fullscreenchange", fullscreenchangeHandler);
 const game_level = document.getElementById("game-level");
 let jsonConfig = "none";
-let gameName;
 game_level.addEventListener("change", (event) => {
     fetchConfig(event.target.value);
-    gameName = game_level.options[game_level.selectedIndex].text
 });
 let initDone = false;
 // We only need to init once, but it must be after some user input so now is a good time.
@@ -51,7 +49,6 @@ function initWasm(callback) {
 
 function fetchMenu() {
     const url = "config/menu.json";
-    let r;
     fetch(url)
         .then(function(response) {
             console.log(response.statusText);
@@ -106,7 +103,7 @@ function startGame() {
         soundParam = "off";
     }
     sound(soundParam);
-    gamename(gameName);
+//    gamename(gameName);
     play();
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
@@ -129,9 +126,7 @@ function cleanup_after_play() {
 
 }
 function fullscreenchangeHandler(event) {
-    // document.fullscreenElement will point to the element that
-    // is in fullscreen mode if there is one. If not, the value
-    // of the property is null.
+    console.log("Closing: ", event.target.id);
     if (document.fullscreenElement) {
         console.log(`entered fullscreen mode.`);
     } else {

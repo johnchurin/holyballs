@@ -354,7 +354,17 @@ impl Configuration {
             WALL_COLOR
         }
     }
+    fn get_level_count(&self) -> i32 {
+        self.levels.len() as i32
+    }
 
+    fn get_name(&self) -> String {
+        if self.name.is_some() {
+            self.name.clone().unwrap()
+        } else {
+            String::from("No gemae name")
+        }
+    }
     fn _add(&mut self, level: GameLevel) -> &mut Self {
         self.levels.push(level);
         self
@@ -606,10 +616,16 @@ fn check_external_channel(
                     let config: Result<Configuration> = serde_json::from_str(json.as_str());
                     if config.is_ok() {
                         let config = config.unwrap();
-                        scoreboard.set_total_levels(config.levels.len() as i32);
                         {
-                            let name = &config.name;
-                            println!("{} levels in {} game", scoreboard.total_levels, name.clone().unwrap());
+                            scoreboard.set_total_levels(config.get_level_count());
+                            //                            let name = config.name.unwrap();
+//                            println!("{} levels in {} game", scoreboard.total_levels, name.clone().unwrap());
+                            for mut mesh in name_query.iter_mut() {
+                                mesh.text = format!("v{}  {} {} levels",
+                                                    env!("CARGO_PKG_VERSION").to_owned(),
+                                                    config.get_name(),
+                                                    config.get_level_count());
+                            }
                         }
                         commands.insert_resource(config);
                     }
@@ -1969,8 +1985,8 @@ fn update_scoreboard(
     scoreboard: Res<Scoreboard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Level: {} / {}\nScore: {}\nTotal: {}\nToys Left: {}\nBalls Left: {}",
-                            scoreboard.level, scoreboard.total_levels,
+        text.text = format!("Level: {}\nScore: {}\nTotal: {}\nToys Left: {}\nBalls Left: {}",
+                            scoreboard.level,
                             scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
     };
