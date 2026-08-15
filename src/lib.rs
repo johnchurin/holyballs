@@ -169,9 +169,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .add_systems(Update, (
              update_countdown,
              clear_scoring_text,
-             update_background_color,
-             update_table_color,
-             update_wall_color,
+             handle_color_update,
         ))
         .add_systems(Update, (
             check_external_channel,
@@ -192,9 +190,9 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             score_fallen_entities,
             handle_ball_message,
         ))
+        .add_message::<ColorMessage>()
         .add_message::<BallMessage>()
         .add_message::<PointValueMessage>()
-
         .add_message::<PropagateAssetColorMessage>()
         .add_message::<ActivateGameMessage>()
         .add_message::<ImpulseMessage>()
@@ -391,6 +389,13 @@ enum SoundType {
 struct ImpulseMessage {
     entity: Entity,
     force: Vec3,
+}
+
+#[derive(Message)]
+struct ColorMessage {
+    wall_color: Color,
+    table_color: Color,
+    background_color: Color,
 }
 
 #[derive(Message)]
@@ -1695,43 +1700,27 @@ fn create_cylinders(
     }
 }
 
-fn update_background_color(
-    configuration: Res<Configuration>,
-//    clear_color: ResMut<ClearColor>,
+fn handle_color_update(
+    mut messages: MessageReader<ColorMessage>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    table_query: Query<&MeshMaterial3d<StandardMaterial>, With<Table>>,
+    wall_query: Query<&MeshMaterial3d<StandardMaterial>, With<Walls>>,
     mut commands: Commands,
 ) {
-    if configuration.background_color.is_some() {
-        let color = configuration.get_background_color();
-        commands.insert_resource(ClearColor(color));
-    }
-}
-
-fn update_table_color(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<&MeshMaterial3d<StandardMaterial>, With<Table>>,
-    configuration: Res<Configuration>,
-) {
-    if configuration.table_color.is_some() {
-        for handle in &query {
+    for cm in messages.read() {
+        commands.insert_resource(ClearColor(cm.background_color));
+        for handle in &table_query {
             let mat = materials.get_mut(handle);
             if mat.is_some() {
                 let mut mat = mat.unwrap();
-                mat.base_color = configuration.get_table_color();
+                mat.base_color = cm.table_color;
             }
         }
-    }
-}
-fn update_wall_color(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<&MeshMaterial3d<StandardMaterial>, With<Walls>>,
-    configuration: Res<Configuration>,
-) {
-    if configuration.wall_color.is_some() {
-        for handle in &query {
+        for handle in &wall_query {
             let mat = materials.get_mut(handle);
             if mat.is_some() {
                 let mut mat = mat.unwrap();
-                mat.base_color = configuration.get_wall_color();
+                mat.base_color = cm.wall_color;
             }
         }
     }
@@ -1790,6 +1779,11 @@ fn handle_new_level(
             return;
         }
         commands.write_message(ActivateGameMessage {});
+        commands.write_message(ColorMessage {
+            table_color: configuration.get_table_color(),
+            wall_color: configuration.get_wall_color(),
+            background_color: configuration.get_background_color(),
+        });
         let game_level = game_level.unwrap();
         game_level_res.set_game_level(game_level);
         create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
