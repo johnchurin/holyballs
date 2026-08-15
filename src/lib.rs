@@ -1115,7 +1115,7 @@ fn create_countdown_board(
             text: "00:00".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.1,
+                depth: 0.03,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -1991,7 +1991,7 @@ fn setup_game_board(
             text: "Starting".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.1,
+                depth: 0.03,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -2022,7 +2022,7 @@ fn setup_game_board(
             text: "Welcome!".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.08,
+                depth: 0.03,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -2067,7 +2067,7 @@ fn setup_game_board(
             text: "No score yet".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.08,
+                depth: 0.03,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -2086,7 +2086,7 @@ fn setup_game_board(
             ..default()
         })),
         Transform {
-            translation: Vec3::new(0.0, 2.0, -10.0),
+            translation: Vec3::new(0.0, 4.0, -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
             scale: Vec3::splat(0.8),
         },
@@ -2133,7 +2133,7 @@ fn setup_game_board(
             text: "Holy Balls".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.1,
+                depth: 0.03,
                 subdivision: 8,
                 anchor: TextAnchor::Center,
                 justify: JustifyText::Center,
@@ -2151,7 +2151,7 @@ fn setup_game_board(
             ..default()
         })),
         Transform {
-            translation: Vec3::new(0., 5., -10.0),
+            translation: Vec3::new(0., 7., -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.),
             scale: Vec3::new(4.0, 4.0, 2.0),
         },
@@ -2163,10 +2163,10 @@ fn setup_game_board(
             text: "game name goes here".to_string(),
             font: font.clone(),
             style: TextMeshStyle {
-                depth: 0.1,
+                depth: 0.03,
                 subdivision: 8,
-                anchor: TextAnchor::Center,
-                justify: JustifyText::Center,
+                anchor: TextAnchor::TopLeft,
+                justify: JustifyText::Left,
                 ..default()
             },
         },
@@ -2179,7 +2179,7 @@ fn setup_game_board(
             ..default()
         })),
         Transform {
-            translation: Vec3::new(-10.0, -2.0, 12.0),
+            translation: Vec3::new(-12.0, -2.0, 12.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
             scale: Vec3::splat(0.4),
         },
