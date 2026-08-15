@@ -661,7 +661,7 @@ fn check_external_channel(
                 if message.payload.is_some() {
                     let payload = message.payload.unwrap();
                     for mut mesh in name_query.iter_mut() {
-                        mesh.text = payload.clone();
+                        mesh.text = format!("v{}  {}", env!("CARGO_PKG_VERSION").to_owned(), payload.as_str());
                     }
                 }
             }

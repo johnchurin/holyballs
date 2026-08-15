@@ -6,11 +6,22 @@ vars:
   GREETING: Holyballs build scripts
 
 tasks:
+  help:
+    desc: "List all available tasks"
+    cmds:
+      - task --list
+
+  default:
+    cmds:
+      - task: help
+
   cli-build:
+    desc: "Build standalone (cli)"
     cmds:
       - cargo build --bin holyballs_cli
 
   cli:
+    desc: "Build and run standalone (cli)"
     dir: target/debug
     cmds:
       - task: cli-build
@@ -20,6 +31,7 @@ tasks:
       - ./holyballs_cli
 
   wasm-generated-clean:
+    desc: "Clean the site/generated folder"
     cmds:
       - rm site/generated
 
@@ -44,7 +56,7 @@ tasks:
 #      - powershell -Command "Start-process firebase emulators:start"
 
   wasm-release-clean:
-    desc: Clean target for wasm
+    desc: Clean release target for wasm
     cmds:
       - cargo clean --target wasm32-unknown-unknown --profile release
     silent: false
