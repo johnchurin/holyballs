@@ -1,4 +1,4 @@
-import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
+import init, { sound, load, play, end_play, gamename } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
 button.addEventListener("click", () => {
     const spinner = document.getElementById("spinner");
@@ -24,9 +24,11 @@ fetchMenu();
 const container = document.getElementById("fullscreenContainer");
 container.addEventListener("fullscreenchange", fullscreenchangeHandler);
 const game_level = document.getElementById("game-level");
-var jsonConfig = "none";
+let jsonConfig = "none";
+let gameName;
 game_level.addEventListener("change", (event) => {
     fetchConfig(event.target.value);
+    gameName = game_level.options[game_level.selectedIndex].text
 });
 let initDone = false;
 // We only need to init once, but it must be after some user input so now is a good time.
@@ -104,6 +106,7 @@ function startGame() {
         soundParam = "off";
     }
     sound(soundParam);
+    gamename(gameName);
     play();
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");

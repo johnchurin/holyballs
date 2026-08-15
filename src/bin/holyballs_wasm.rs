@@ -8,7 +8,7 @@ static EXTERNAL_PRODUCER: OnceLock<ExternalProducer> = OnceLock::new();
 static TX: OnceLock<MAsyncTx<Array<ExternalMessage>>> = OnceLock::new();
 
 pub fn main() {
-    let (tx, rx) = mpmc::bounded_async::<ExternalMessage>(3);
+    let (tx, rx) = mpmc::bounded_async::<ExternalMessage>(30);
     // We keep the producer here for wasm calls from javascript
     EXTERNAL_PRODUCER.get_or_init(|| {
         ExternalProducer::new(tx.clone())
@@ -77,4 +77,12 @@ pub fn end_play() {
         let external_producer = p.unwrap();
         external_producer.send(ExternalMessage::new(String::from("end_play"), None));
     }
+}
+#[wasm_bindgen]
+pub fn gamename(name:String) {
+    let p = EXTERNAL_PRODUCER.get();
+    if p.is_some() {
+        let external_producer = p.unwrap();
+       external_producer.send(ExternalMessage::new(String::from("game_name"), Some(name)));
+   }
 }

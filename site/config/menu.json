@@ -25,6 +25,11 @@
       "name": "hard",
       "display": "Hard",
       "file": "hard.hb.json"
+    },
+    {
+      "name": "harder",
+      "display": "Harder",
+      "file": "harder.hb.json"
     }
   ]
 }

@@ -68,7 +68,7 @@ impl ExternalProducer {
         Self{tx}
     }
     pub fn send(&self, message: ExternalMessage) {
-        self.tx.try_send(message).expect("No tx channel");
+        self.tx.try_send(message).expect("No tx channel for external producer");
     }
 }
 #[derive(Resource)]
@@ -232,6 +232,9 @@ pub struct MenuItem {
 struct GameLevelResource {
     game_level: Option<GameLevel>,
 }
+#[derive(Resource)]
+struct GameName {}
+
 impl GameLevelResource {
     fn new() -> Self {
         Self {
@@ -584,11 +587,13 @@ fn _setup_window(
 }
 
 fn check_external_channel(
-//    time: Res<Time>,
+    //    time: Res<Time>,
     mut commands: Commands,
     external_consumer: Res<ExternalConsumer>,
     mut scoreboard: ResMut<Scoreboard>,
     mut win_query: Query<&mut Window, With<PrimaryWindow>>,
+    mut name_query: Query<&mut TextMesh, With<GameName>>,
+
 ) {
     while let Some(message) = external_consumer.try_read() {
         match message.action.as_str() {
@@ -651,6 +656,14 @@ fn check_external_channel(
             // End the game but don't exit the app
             "end_play" => {
                 scoreboard.stop();
+            }
+            "game_name" => {
+                if message.payload.is_some() {
+                    let payload = message.payload.unwrap();
+                    for mut mesh in name_query.iter_mut() {
+                        mesh.text = payload.clone();
+                    }
+                }
             }
             _ => {
                 println!("Unknow action in external mmessage");
@@ -1956,7 +1969,7 @@ fn update_scoreboard(
     scoreboard: Res<Scoreboard>,
 ) {
     for mut text in scoreboard_query.iter_mut() {
-        text.text = format!("Game Level: {} / {}\nLevel Score: {}\nTotal Score: {}\nToys Left: {}\nBalls Left: {}",
+        text.text = format!("Level: {} / {}\nScore: {}\nTotal: {}\nToys Left: {}\nBalls Left: {}",
                             scoreboard.level, scoreboard.total_levels,
                             scoreboard.score, scoreboard.total,
                             scoreboard.toys, scoreboard.balls);
@@ -2141,6 +2154,34 @@ fn setup_game_board(
             translation: Vec3::new(0., 5., -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.),
             scale: Vec3::new(4.0, 4.0, 2.0),
+        },
+    ));
+    // game_name
+    commands.spawn((
+        GameName{},
+        TextMesh {
+            text: "game name goes here".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.1,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                justify: JustifyText::Center,
+                ..default()
+            },
+        },
+        NotShadowCaster,
+        Mesh3d::default(),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: TEXT_COLOR,
+            double_sided: false,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform {
+            translation: Vec3::new(-10.0, -2.0, 12.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
+            scale: Vec3::splat(0.4),
         },
     ));
 }
