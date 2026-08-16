@@ -1170,6 +1170,7 @@ fn create_barriers(
         if (mask & 1) != 0 {
             // Barrier Left
             commands.spawn((
+                CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
                 Barrier {},
                 RigidBody::Fixed,
                 Friction::new(0.0),
@@ -1184,6 +1185,7 @@ fn create_barriers(
             // Barrier Center
             commands.spawn((
                 Barrier {},
+                CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
                 RigidBody::Fixed,
                 Friction::new(0.0),
                 Restitution::new(0.1),
@@ -1197,6 +1199,7 @@ fn create_barriers(
             // Barrier wall
             commands.spawn((
                 Barrier {},
+                CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
                 RigidBody::Fixed,
                 Friction::new(0.0),
                 Restitution::new(0.1),
@@ -1210,12 +1213,13 @@ fn create_barriers(
             // Long Barrier
             commands.spawn((
                 Barrier {},
+                CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
                 RigidBody::Fixed,
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 1.0, 2.0)))),
                 MeshMaterial3d(materials.add(color)),
-                Collider::cuboid(8.5, 0.5, 1.0),
+                Collider::cuboid(12.5, 0.5, 1.0),
                 Transform::from_xyz(0.0, 0.25, 0.0),
             ));
         }
