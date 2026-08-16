@@ -1057,7 +1057,7 @@ fn handle_sound(
 fn random_location() -> Vec3 {
     let mut rng = rand::rng();
     Vec3::new(rng.random_range(-10..10) as f32,
-              10.0 + rng.random_range(0.0..10.0),
+              10.0 + rng.random_range(0.0..8.0),
               rng.random_range(-9..9) as f32)
 }
 
@@ -1166,34 +1166,34 @@ fn create_barriers(
     if game_level.barriers.is_some() {
         let color = configuration.get_barrier_color();
         let count = game_level.barriers.unwrap();
-        let hy = if count > 2 { 1.0 } else { 0.25 };
-        if count > 0 {
+        let mask = count as u32;
+        if (mask & 1) != 0 {
             // Barrier Left
             commands.spawn((
                 Barrier {},
                 RigidBody::Fixed,
                 Friction::new(0.0),
                 Restitution::new(0.1),
-                Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, hy * 2.0, 2.0)))),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(17.0, 1.0, 2.0)))),
                 MeshMaterial3d(materials.add(color)),
-                Collider::cuboid(8.5, hy, 1.0),
+                Collider::cuboid(8.5, 0.5, 1.0),
                 Transform::from_xyz(-4.0, 0.25, 0.0),
             ));
         }
-        if count > 1 {
-            // Barrier Right
+        if (mask & 2) != 0 {
+            // Barrier Center
             commands.spawn((
                 Barrier {},
                 RigidBody::Fixed,
                 Friction::new(0.0),
                 Restitution::new(0.1),
-                Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 0.5, 20.0)))),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 1.0, 20.0)))),
                 MeshMaterial3d(materials.add(color)),
-                Collider::cuboid(1.0, 0.25, 10.0),
+                Collider::cuboid(1.0, 0.5, 10.0),
                 Transform::from_xyz(5.0, 0.25, 0.0),
             ));
         }
-        if count > 3 {
+        if (mask & 4) != 0 {
             // Barrier wall
             commands.spawn((
                 Barrier {},
@@ -1204,6 +1204,19 @@ fn create_barriers(
                 MeshMaterial3d(materials.add(color)),
                 Collider::cuboid(0.5, 1.25, 10.0),
                 Transform::from_xyz(5.0, 1.25, 0.0),
+            ));
+        }
+        if (mask & 8) != 0 {
+            // Long Barrier
+            commands.spawn((
+                Barrier {},
+                RigidBody::Fixed,
+                Friction::new(0.0),
+                Restitution::new(0.1),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 1.0, 2.0)))),
+                MeshMaterial3d(materials.add(color)),
+                Collider::cuboid(8.5, 0.5, 1.0),
+                Transform::from_xyz(0.0, 0.25, 0.0),
             ));
         }
     }
@@ -1219,7 +1232,7 @@ fn create_fences(
     if game_level.fences.is_some() {
         let count = game_level.fences.unwrap();
         let color = configuration.get_fence_color();
-        if count == 1 || count == 3 || count == 4 {
+        if (count & 1) != 0 {
             commands.spawn((
                 CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
                 NotShadowCaster,
@@ -1233,7 +1246,7 @@ fn create_fences(
                 Transform::from_xyz(0.0, 0.5, -10.0),
             ));
         }
-        if count == 2 || count == 3 || count == 4 {
+        if (count & 2) != 0 {
             commands.spawn((
                 CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
                 NotShadowCaster,
@@ -1247,7 +1260,7 @@ fn create_fences(
                 Transform::from_xyz(12.5 - 0.125, 0.5, 0.0),
             ));
         }
-        if count == 4 {
+        if (count & 4) != 0 {
             commands.spawn((
                 CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
                 NotShadowCaster,
@@ -1261,7 +1274,7 @@ fn create_fences(
                 Transform::from_xyz(0.0, 0.5, 10.0),
             ));
         }
-        if count == 2 || count == 3 || count == 4 {
+        if (count & 8) != 0 {
             commands.spawn((
                 CollisionGroups::new(FENCE_GROUP, BALL_GROUP),
                 NotShadowCaster,
@@ -1374,6 +1387,7 @@ fn create_disks(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.75, 0.6)))),
@@ -1406,6 +1420,7 @@ fn create_cones(
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 RigidBody::Dynamic,
                 Friction::new(0.1),
                 Restitution::new(0.1),
@@ -1441,6 +1456,7 @@ fn create_blacks(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
                 ColliderMassProperties::Density(0.0),
                 Restitution::new(0.1),
@@ -1492,6 +1508,7 @@ fn create_dips(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 ExternalImpulse::default(),
                 external_force,
                 Friction::new(0.1),
@@ -1533,6 +1550,7 @@ fn create_bumpys(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 ExternalImpulse::default(),
@@ -1558,6 +1576,7 @@ fn create_targets(
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: false },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 RigidBody::Fixed,
                 PointValue { value: 35 },
                 ExternalImpulse::default(), // For when this becomes dynamic
@@ -1574,6 +1593,7 @@ fn create_targets(
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: false },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 RigidBody::Fixed,
                 PointValue { value: 45 },
                 ExternalImpulse::default(), // For when this becomes dynamic
@@ -1590,6 +1610,7 @@ fn create_targets(
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: false },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 RigidBody::Fixed,
                 PointValue { value: 45 },
                 ExternalImpulse::default(), // For when this becomes dynamic
@@ -1619,6 +1640,7 @@ fn create_ghosts(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 1.0, 1.0)))),
@@ -1655,6 +1677,7 @@ fn create_lifesavers(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.0),
                 Restitution::new(0.1),
                 ExternalImpulse::default(),
@@ -1690,6 +1713,7 @@ fn create_spikeys(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.4),
                 Restitution::new(0.1),
                 ColliderMassProperties::Mass(0.25),
@@ -1716,6 +1740,7 @@ fn create_cylinders(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 RigidBody::Dynamic,
                 ToyType { dynamic: true },
+                Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.8),
                 Restitution::new(0.1),
                 ExternalImpulse::default(),
