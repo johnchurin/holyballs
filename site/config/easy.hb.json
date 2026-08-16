@@ -28,6 +28,29 @@
       "ghosts": 3,
       "cylinders": 3,
       "help": "Even more toys"
+    },
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "cones": 4,
+      "blocks": 3,
+      "help": "Cones can be tricky sometimes"
+    },
+    {
+      "seconds": {
+        "secs": 60,
+        "nanos": 0
+      },
+      "balls": 3,
+      "blocks": 2,
+      "wind": [
+        -1.5,
+        0.0,
+        1.5
+      ],
+      "help": "Strong wind from the north-east"
     }
   ]
 }
