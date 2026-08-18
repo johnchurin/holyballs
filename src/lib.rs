@@ -1,4 +1,6 @@
 #![feature(trivial_bounds)]
+
+
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use bevy::audio::Volume;
@@ -43,10 +45,10 @@ const WALL_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
 const TEXT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 //    const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
-const BALL_GROUP: Group = Group::GROUP_1;  // 0b0001
-const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
-const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
-const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
+pub const BALL_GROUP: Group = Group::GROUP_1;  // 0b0001
+pub const TOY_GROUP: Group = Group::GROUP_2;   // 0b0010
+pub const FENCE_GROUP: Group = Group::GROUP_3;  // 0b0100
+pub const FIXED_GROUP: Group = Group::GROUP_4;  // 0b0100
 
 pub struct ExternalMessage {
     pub action: String,
@@ -470,17 +472,21 @@ struct SensorChild {
     next_color: Color,
 }
 
-#[derive(Component)]
-struct PointValue {
+#[derive(Component, Clone, Default)]
+pub struct PointValue {
     value: i32,
 }
-
+impl PointValue {
+    pub fn new(value: i32) -> Self {
+        Self{ value }
+    }
+}
 #[derive(Component)]
 struct Fence {}
 
-#[derive(Component)]
-struct ToyType {
-    dynamic: bool,
+#[derive(Component, Copy, Clone, Default)]
+pub struct ToyType {
+    pub dynamic: bool,
 }
 #[derive(Resource)]
 struct CountdownBoard {
@@ -1054,7 +1060,7 @@ fn handle_sound(
         }
     }
 }
-fn random_location() -> Vec3 {
+pub fn random_location() -> Vec3 {
     let mut rng = rand::rng();
     Vec3::new(rng.random_range(-10..10) as f32,
               10.0 + rng.random_range(0.0..8.0),

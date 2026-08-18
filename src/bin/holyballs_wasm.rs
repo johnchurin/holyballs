@@ -24,7 +24,7 @@ pub fn main() {
 }
 
 #[wasm_bindgen(module = "/site/js/export.js")]
-extern "C" {
+unsafe extern "C" {
     fn game_ended();
     fn console_message(msg: &str);
 }

@@ -1,5 +1,7 @@
 import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
+const primaryLanguage = navigator.language;
+console.log("Primary language" + primaryLanguage);
 button.addEventListener("click", () => {
     const spinner = document.getElementById("spinner");
     spinner.style.display = "inline";
