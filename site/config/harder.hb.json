@@ -7,10 +7,7 @@
   "barrier_color": "#710000",
   "levels": [
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "barriers": 2,
       "blocks": 6,
@@ -20,10 +17,7 @@
       "help": "More toys to push off the edge. Not much time to do it."
     },
     {
-      "seconds": {
-        "secs": 300,
-        "nanos": 0
-      },
+      "seconds": 240,
       "balls": 3,
       "barriers": 2,
       "blocks": 6,

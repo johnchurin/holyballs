@@ -1,5 +1,6 @@
 {
   "name": "Beginner",
+  "pace": 2000,
   "background_color": "#F7F7FF",
   "wall_color": "#00F5FF",
   "table_color": "#7C4DFF",
@@ -20,10 +21,7 @@
       "help": "More toys to push off the edge."
     },
     {
-      "seconds": {
-        "secs": 120,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "blocks": 1,
       "disks": 1,
@@ -31,10 +29,7 @@
       "help": "Fewer balls available now\nand, this level is timed."
     },
     {
-      "seconds": {
-        "secs": 120,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "fences": 15,
       "barriers": 8,
@@ -42,30 +37,21 @@
       "help": "Use the space bar to bounce the ball over the barrier"
     },
     {
-      "seconds": {
-        "secs": 30,
-        "nanos": 0
-      },
+      "seconds": 30,
       "fences": 15,
       "balls": 3,
       "blocks": 4,
       "help": "Adding some time pressure, you only have 30 seconds!"
     },
     {
-      "seconds": {
-        "secs": 90,
-        "nanos": 0
-      },
+      "seconds": 90,
       "balls": 3,
       "fences": 15,
       "blacks": 1,
       "help": "Hit the top of the black disk to turn it white and\nget bonus points when you push it off the edge"
     },
     {
-      "seconds": {
-        "secs": 120,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "blocks": 2,
       "fences": 15,
@@ -77,20 +63,14 @@
       "help": "This time with a light breeze coming out of the west"
     },
     {
-      "seconds": {
-        "secs": 120,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "barriers": 5,
       "blocks": 2,
       "help": "Is there a toy hiding behind the barrier? Toggle the O key to check."
     },
     {
-      "seconds": {
-        "secs": 120,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "barriers": 15,
       "disks": 2,

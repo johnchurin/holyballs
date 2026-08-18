@@ -1,5 +1,6 @@
 {
   "name": "Challenge",
+  "pace": 500,
   "background_color": "#95D5B2",
   "wall_color": "#2D6A4F",
   "table_color": "#FFB703",
@@ -7,10 +8,7 @@
   "barrier_color": "#E63946",
   "levels": [
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 120,
       "balls": 3,
       "barriers": 2,
       "blocks": 6,
@@ -20,10 +18,7 @@
       "help": "More toys to push off the edge. Not much time to do it."
     },
     {
-      "seconds": {
-        "secs": 300,
-        "nanos": 0
-      },
+      "seconds": 300,
       "balls": 3,
       "barriers": 2,
       "blocks": 6,

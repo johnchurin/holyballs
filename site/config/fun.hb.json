@@ -1,5 +1,6 @@
 {
   "name": "Fun",
+  "pace": 800,
   "background_color": "#FFE66D",
   "wall_color": "#FF3B30",
   "table_color": "#FF9500",
@@ -7,59 +8,41 @@
   "barrier_color": "#2EC4B6",
   "levels": [
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "targets": 1,
       "help": "Balls to the walls: Hit the disk on the scoreboard.\nIf it lands on the table, you have to push it off the edge\nto get points."
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "barriers": 2,
       "ghosts": 4,
       "help": "Some ghost blocks. 1 minute to clear the toys."
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "barriers": 2,
       "dips": 2,
       "help": "Put the ball in the dip to turn the piece white to\nget bonus points when you push it off the edge"
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "barriers": 2,
       "spikeys": 2,
       "help": "Spikey balls are a bit of a challenge to get over the edge."
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "barriers": 2,
       "lifesavers": 2,
       "help": "Put the ball in the lifesaver to earn bonus points."
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "targets": 3,
       "help": "Remember, if it lands on the table, you still have to push\nit off the edgeto get points."

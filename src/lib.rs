@@ -8,6 +8,7 @@ use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
+use std::ops::Sub;
 use std::time::Duration;
 use bevy::light::NotShadowCaster;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
@@ -132,6 +133,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         //        .add_systems(Startup, setup_window)
 // cli only        .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
+        .insert_resource(ToyDrop::new())
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(external_consumer)
         .insert_resource(external_reply)
@@ -191,7 +193,10 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             handle_asset_color_propagation,
             score_fallen_entities,
             handle_ball_message,
+            handle_new_toys,
+            release_toys,
         ))
+        .add_message::<NewToysMessage>()
         .add_message::<ColorMessage>()
         .add_message::<BallMessage>()
         .add_message::<PointValueMessage>()
@@ -204,6 +209,81 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .run();
     println!("Exiting from app::run");
 }
+#[derive(Resource)]
+struct ToyDrop {
+    pace: Duration,
+    left: Duration,
+    toys: Vec<Entity>,
+}
+impl ToyDrop {
+    fn new() -> Self {
+        Self{pace: Duration::ZERO, left: Duration::ZERO, toys: Vec::new()}
+    }
+
+    fn start(&mut self, pace: Duration) {
+        self.pace = pace;
+        self.left = self.pace;
+    }
+
+    fn clear(&mut self) {
+        self.pace = Duration::ZERO;
+        self.left = Duration::ZERO;
+        self.toys.clear()
+    }
+
+    fn add(&mut self, entity: Entity) {
+        if self.toys.is_empty() {
+            self.toys.push(entity);
+        } else {
+            let mut rng = rand::rng();
+            let i = rng.random_range(0..self.toys.len());
+            self.toys.insert(i, entity);
+        }
+    }
+
+    fn check_time(&mut self, delay: Duration) -> bool {
+        if self.toys.len() <= 0 {
+            false
+        } else {
+            //            println!("Left: {}ms", self.left.as_millis());
+            if self.left >= delay {
+                self.left = self.left.sub(delay);
+                false
+            } else {
+                true
+            }
+        }
+    }
+    fn reset(&mut self) {
+        if !self.toys.is_empty() {
+            self.left = self.pace;
+        }
+    }
+    fn next_toy(&mut self) -> Option<Entity> {
+//        println!("Release toy");
+        let toy = self.toys.pop();
+        if toy.is_none() {
+            self.pace = Duration::ZERO;
+            self.left = Duration::ZERO;
+        }
+        toy
+    }
+}
+fn release_toys(
+    time: Res<Time>,
+    mut toy_drop: ResMut<ToyDrop>,
+    mut commands: Commands,
+) {
+    if toy_drop.check_time(time.delta()) {
+//        println!("It's time to release");
+        let toy = toy_drop.next_toy();
+        if toy.is_some() {
+            commands.entity(toy.unwrap()).insert(RigidBody::Dynamic);
+            toy_drop.reset();
+        }
+    }
+}
+
 #[derive(Resource)]
 struct ExitDelay {
     seconds: Option<f32>,
@@ -251,39 +331,23 @@ impl GameLevelResource {
     }
 }
 #[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize, Asset, TypePath)]
+#[derive(Deserialize, Asset, TypePath)]
 struct GameLevel {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seconds: Option<Duration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    seconds: Option<i32>,
     balls: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     barriers: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     blocks: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     disks: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     cones: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     blacks: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     dips: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     bumpys: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     targets: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     spikeys: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     ghosts: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     lifesavers: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     cylinders: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     fences: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     wind: Option<Vec3>,
     help: String,
 }
@@ -299,11 +363,12 @@ impl GameLevel {
     }
 }
 #[derive(Resource)]
-#[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize, Asset, TypePath)]
+#[derive(Default)]
+#[derive(Deserialize, Asset, TypePath)]
 pub struct Configuration {
     name: Option<String>,
     description: Option<String>,
+    pace: Option<u32>,
     background_color: Option<String>,
     title_color: Option<String>,
     table_color: Option<String>,
@@ -400,6 +465,9 @@ enum SoundType {
     GameOver,
     FinishLevel,
 }
+#[derive(Message)]
+struct NewToysMessage{}
+
 #[derive(Message)]
 struct ImpulseMessage {
     entity: Entity,
@@ -1063,7 +1131,7 @@ fn handle_sound(
 pub fn random_location() -> Vec3 {
     let mut rng = rand::rng();
     Vec3::new(rng.random_range(-10..10) as f32,
-              10.0 + rng.random_range(0.0..8.0),
+              10.5,
               rng.random_range(-9..9) as f32)
 }
 
@@ -1358,7 +1426,8 @@ fn create_blocks(
         for _n in 0..n {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+//                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Friction::new(0.2),
                 Restitution::new(0.1),
@@ -1395,7 +1464,7 @@ fn create_disks(
         for _n in 0..n {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
@@ -1431,7 +1500,7 @@ fn create_cones(
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 Friction::new(0.1),
                 Restitution::new(0.1),
                 Mesh3d(meshes.add(Mesh::from(Cone::new(0.75, 2.0)))),
@@ -1464,7 +1533,7 @@ fn create_blacks(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
@@ -1516,7 +1585,7 @@ fn create_dips(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 ExternalImpulse::default(),
@@ -1558,7 +1627,7 @@ fn create_bumpys(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.0),
@@ -1648,7 +1717,7 @@ fn create_ghosts(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.2),
@@ -1685,7 +1754,7 @@ fn create_lifesavers(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.0),
@@ -1721,7 +1790,7 @@ fn create_spikeys(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.4),
@@ -1748,7 +1817,7 @@ fn create_cylinders(
         for _n in 0..count {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
-                RigidBody::Dynamic,
+                RigidBody::Fixed,
                 ToyType { dynamic: true },
                 Ccd::enabled(), // Prevents tunneling at high velocities
                 Friction::new(0.8),
@@ -1789,9 +1858,32 @@ fn handle_color_update(
         }
     }
 }
-
+// When toys are first created, most do not have RigidBody component: so they won't move.
+// When requested, we query them and and make a list of their entity ids stored in a resource.
+// Later, the release_toys system releases them one-at-a-time.
+fn handle_new_toys(
+    mut toy_drop: ResMut<ToyDrop>,
+    configuration: Res<Configuration>,
+    mut messages: MessageReader<NewToysMessage>,
+    toy_query: Query<(Entity, &ToyType, &RigidBody), With<ToyType>>,
+) {
+    for _event in messages.read() {
+        for (entity, toy_type, rigid_body) in toy_query.iter() {
+            if !rigid_body.is_dynamic() && toy_type.dynamic {
+    //            println!("Add toy to toy drop");
+                toy_drop.add(entity);
+            }
+        }
+        if configuration.pace.is_some() {
+            toy_drop.start(Duration::from_millis(configuration.pace.unwrap() as u64));
+        } else {
+            toy_drop.start(Duration::from_millis(500));
+        }
+    }
+}
 fn handle_new_level(
     mut messages: MessageReader<PlayLevel>,
+    mut toy_drop: ResMut<ToyDrop>,
     configuration: Res<Configuration>,
     mut old_balls: Query<Entity, With<BouncyBall>>,
     mut old_toys: Query<Entity, With<ToyType>>,
@@ -1804,11 +1896,11 @@ fn handle_new_level(
     mut game_level_res: ResMut<GameLevelResource>,
     asset_server: Res<AssetServer>,
     fence_query: Query<Entity, With<Fence>>,
-    //    clock_query: Query<Entity, With<ClockBoard>>,
     mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
-//    mut clear_color: ResMut<ClearColor>,
 ) {
     for _event in messages.read() {
+        // Remove anything waiting to drop
+        toy_drop.clear();
         // Remove old balls, toys, and barriers
         for entity in old_balls.iter_mut() {
             if let Ok(mut entity_cmds) = commands.get_entity(entity) {
@@ -1850,6 +1942,12 @@ fn handle_new_level(
         });
         let game_level = game_level.unwrap();
         game_level_res.set_game_level(game_level);
+        // Introduce the level
+        commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
+        commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
+        // Drop the first ball
+        commands.write_message(BallMessage{});
+
         create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
         create_blocks(game_level, &mut commands, &mut meshes, &mut materials, );
         create_barriers(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
@@ -1863,6 +1961,9 @@ fn handle_new_level(
         create_ghosts(game_level, &mut commands, &mut meshes, &mut materials);
         create_lifesavers(game_level, &mut commands, &asset_server);
         create_cylinders(game_level, &mut commands, &asset_server);
+
+        commands.write_message(NewToysMessage{});
+
         scoreboard.set_balls_count(game_level.get_ball_count());
         if game_level.seconds == None {
             for mut visibility in clock_face_query.iter_mut() {
@@ -1870,16 +1971,12 @@ fn handle_new_level(
             }
         } else {
         // Start the clock
-            countdown_board.start(game_level.seconds);
+            countdown_board.start(Some(Duration::from_secs(game_level.seconds.unwrap() as u64)));
             // And make it visible
             for mut visibility in clock_face_query.iter_mut() {
                 *visibility = Visibility::Visible;
             }
         }
-        commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
-        commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
-        // Ready to drop a ball
-        commands.write_message(BallMessage{});
     }
 }
 fn start_new_game(

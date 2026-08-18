@@ -7,10 +7,7 @@
   "barrier_color": "#FFD166",
   "levels": [
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "blocks": 3,
       "disks": 3,
@@ -18,31 +15,22 @@
       "help": "More toys, less time"
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 100,
       "balls": 4,
       "blocks": 4,
       "disks": 4,
       "ghosts": 3,
       "cylinders": 3,
-      "help": "Even more toys"
+      "help": "Even more toys, and a bit more time"
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "cones": 4,
       "blocks": 3,
       "help": "Cones can be tricky sometimes"
     },
     {
-      "seconds": {
-        "secs": 60,
-        "nanos": 0
-      },
+      "seconds": 60,
       "balls": 3,
       "blocks": 2,
       "wind": [
