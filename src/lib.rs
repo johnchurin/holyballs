@@ -1,5 +1,6 @@
 #![feature(trivial_bounds)]
 
+pub mod grid;
 
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -21,7 +22,7 @@ use crossfire::*;
 use crossfire::mpmc::Array;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
-
+use crate::grid::TransformGrid;
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
 
@@ -147,6 +148,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .insert_resource(GameLevelResource::new())
         .insert_resource(ExitDelay{ seconds: None})
         .insert_resource(CameraPosition::new())
+        .insert_resource(TransformGrid::new(6,5, 10.5))
         .add_systems(Update, (
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
@@ -217,6 +219,7 @@ struct ToyDrop {
     pace: Duration,
     left: Duration,
     toys: Vec<Entity>,
+
 }
 impl ToyDrop {
     fn new() -> Self {
@@ -234,7 +237,7 @@ impl ToyDrop {
         self.toys.clear()
     }
 
-    fn add(&mut self, entity: Entity) {
+    fn add(&mut self, entity: Entity)  {
         if self.toys.is_empty() {
             self.toys.push(entity);
         } else {
@@ -272,6 +275,7 @@ impl ToyDrop {
         toy
     }
 }
+
 fn release_toys(
     time: Res<Time>,
     mut toy_drop: ResMut<ToyDrop>,
@@ -399,10 +403,10 @@ impl GameLevel {
 #[derive(Deserialize, Asset, TypePath)]
 pub struct Configuration {
     name: Option<String>,
-    description: Option<String>,
+    _description: Option<String>,
     pace: Option<u32>,
     background_color: Option<String>,
-//    title_color: Option<String>,
+    _title_color: Option<String>,
     table_color: Option<String>,
     barrier_color: Option<String>,
     fence_color: Option<String>,
@@ -1164,12 +1168,6 @@ fn handle_sound(
         }
     }
 }
-pub fn random_location() -> Vec3 {
-    let mut rng = rand::rng();
-    Vec3::new(rng.random_range(-10..10) as f32,
-              10.5,
-              rng.random_range(-9..9) as f32)
-}
 
 fn handle_activate_game(
     mut messages: MessageReader<ActivateGameMessage>,
@@ -1419,6 +1417,7 @@ fn create_ball(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    transform_grid: &mut ResMut<TransformGrid>,
 ) {
     let external_force = make_external_force(game_level);
     // Spawn a Dynamic Bouncing Ball
@@ -1441,7 +1440,7 @@ fn create_ball(
         //        GravityScale(2.0),
         ExternalImpulse::default(),
         external_force,
-        Transform::from_translation(random_location()),
+        transform_grid.next(),
         Velocity::linear(Vec3::new(2.0, 0.0, 0.0)),
         Mesh3d(meshes.add(Mesh::from(Sphere::new(0.5)))),
         MeshMaterial3d(materials.add(LIVE_BALL)),
@@ -1453,7 +1452,7 @@ fn create_blocks(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    //    asset_server: AssetServer,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.blocks.is_some() {
         let n = game_level.blocks.unwrap();
@@ -1483,7 +1482,7 @@ fn create_blocks(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cuboid(0.5, 0.5, 0.5),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         };
     }
@@ -1493,6 +1492,7 @@ fn create_disks(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.disks.is_some() {
         let n = game_level.disks.unwrap();
@@ -1516,7 +1516,7 @@ fn create_disks(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cylinder(0.3, 0.75),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         }
     }
@@ -1527,6 +1527,7 @@ fn create_cones(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.cones.is_some() {
         let count = game_level.cones.unwrap();
@@ -1550,7 +1551,7 @@ fn create_cones(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cone(1.0, 0.75),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         }
     }
@@ -1561,7 +1562,7 @@ fn create_blacks(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    //    asset_server: AssetServer,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.blacks.is_some() {
         let count = game_level.blacks.unwrap();
@@ -1586,7 +1587,7 @@ fn create_blacks(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cylinder(0.3, 0.75),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             )).with_children(|parent| {
                 parent.spawn((
                     SensorChild { next_color: WHITE_DISK_COLOR },
@@ -1614,6 +1615,7 @@ fn create_dips(
     _meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     asset_server: &Res<AssetServer>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.dips.is_some() {
         let count = game_level.dips.unwrap();
@@ -1638,7 +1640,7 @@ fn create_dips(
                 MeshMaterial3d(materials.add(BLACK_DISK_COLOR)),
                 WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/dip.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_translation(random_location()).with_scale(Vec3::splat(0.5)).with_rotation(Quat::from_axis_angle(Vec3::Z, FRAC_PI_2 * 0.8)),
+                transform_grid.next().with_scale(Vec3::splat(0.5)).with_rotation(Quat::from_axis_angle(Vec3::Z, FRAC_PI_2 * 0.8)),
             )).with_children(|parent| {
                 parent.spawn((
                     SensorChild { next_color: WHITE_DISK_COLOR },
@@ -1656,6 +1658,7 @@ fn create_bumpys(
     game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.bumpys.is_some() {
         let count = game_level.bumpys.unwrap();
@@ -1673,7 +1676,7 @@ fn create_bumpys(
                 PointValue { value: 5 },
                 WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/bumpy.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         }
     }
@@ -1746,6 +1749,7 @@ fn create_ghosts(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.ghosts.is_some() {
         let count = game_level.ghosts.unwrap();
@@ -1774,7 +1778,7 @@ fn create_ghosts(
                 //     angular_damping: 0.2,
                 // },
                 Collider::cuboid(0.5, 0.5, 0.5),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         };
     }
@@ -1783,6 +1787,7 @@ fn create_lifesavers(
     game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.lifesavers.is_some() {
         let count = game_level.lifesavers.unwrap();
@@ -1801,7 +1806,7 @@ fn create_lifesavers(
                 ColliderMassProperties::Density(0.50),
                 WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/doughnut.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_translation(random_location()).with_scale(Vec3::splat(1.0)),
+                transform_grid.next(),
             )).with_children(|parent| {
                 parent.spawn((
                     SensorChild { next_color: WHITE_DISK_COLOR },
@@ -1819,6 +1824,7 @@ fn create_spikeys(
     game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.spikeys.is_some() {
         let count = game_level.spikeys.unwrap();
@@ -1837,7 +1843,7 @@ fn create_spikeys(
                 PointValue { value: 25 },
                 WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/spikey.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_translation(random_location()).with_scale(Vec3::splat(0.3)),
+                transform_grid.next().with_scale(Vec3::splat(0.3)),
             ));
         }
     }
@@ -1846,6 +1852,7 @@ fn create_cylinders(
     game_level: &GameLevel,
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    transform_grid: &mut TransformGrid,
 ) {
     if game_level.cylinders.is_some() {
         let count = game_level.cylinders.unwrap();
@@ -1863,7 +1870,7 @@ fn create_cylinders(
                 PointValue { value: 5 },
                 WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cylinder.glb#collection"))),
                 AsyncSceneCollider::default(),
-                Transform::from_translation(random_location()),
+                transform_grid.next(),
             ));
         }
     }
@@ -1933,6 +1940,7 @@ fn handle_new_level(
     asset_server: Res<AssetServer>,
     fence_query: Query<Entity, With<Fence>>,
     mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
+    mut transform_grid: ResMut<TransformGrid>,
 ) {
     for _event in messages.read() {
         // Remove anything waiting to drop
@@ -1985,18 +1993,18 @@ fn handle_new_level(
         commands.write_message(BallMessage{});
 
         create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
-        create_blocks(game_level, &mut commands, &mut meshes, &mut materials, );
+        create_blocks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
         create_barriers(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
-        create_disks(game_level, &mut commands, &mut meshes, &mut materials);
-        create_cones(game_level, &mut commands, &mut meshes, &mut materials);
-        create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server);
-        create_blacks(game_level, &mut commands, &mut meshes, &mut materials);
-        create_bumpys(game_level, &mut commands, &asset_server);
-        create_spikeys(game_level, &mut commands, &asset_server);
+        create_disks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_cones(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server, &mut transform_grid);
+        create_blacks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_bumpys(game_level, &mut commands, &asset_server, &mut transform_grid);
+        create_spikeys(game_level, &mut commands, &asset_server, &mut transform_grid);
         create_targets(game_level, &mut commands, &mut meshes, &mut materials);
-        create_ghosts(game_level, &mut commands, &mut meshes, &mut materials);
-        create_lifesavers(game_level, &mut commands, &asset_server);
-        create_cylinders(game_level, &mut commands, &asset_server);
+        create_ghosts(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_lifesavers(game_level, &mut commands, &asset_server, &mut transform_grid);
+        create_cylinders(game_level, &mut commands, &asset_server, &mut transform_grid);
 
         commands.write_message(NewToysMessage{});
 
@@ -2064,6 +2072,7 @@ fn handle_ball_message(
     mut materials: ResMut<Assets<StandardMaterial>>,
     query: Query<Entity, With<BouncyBall>>,
     mut scoreboard: ResMut<Scoreboard>,
+    mut transform_grid: ResMut<TransformGrid>,
     game_level_res: Res<GameLevelResource>,
 ) {
     for _event in messages.read() {
@@ -2082,7 +2091,7 @@ fn handle_ball_message(
             let game_level = game_level_res.game_level.as_ref().unwrap();
             // Update scoreboard
             scoreboard.use_a_ball();
-            create_ball(game_level, &mut commands, &mut meshes, &mut materials);
+            create_ball(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
         }
     }
 }
