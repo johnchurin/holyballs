@@ -10,7 +10,7 @@ use bevy_rapier3d::prelude::*;
 use std::f32::consts::{FRAC_PI_2};
 use std::ops::Sub;
 use std::time::Duration;
-use bevy::light::NotShadowCaster;
+use bevy::light::{NotShadowCaster, NotShadowReceiver};
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow, WindowMode};
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
@@ -28,6 +28,8 @@ use serde_json::Result;
 
 const BUMP: f32 = 2.5;
 
+const FLOOR_LEVEL: f32 = -15.0;
+const FLOOR_COLOR: Color = Color::srgb(0.7, 0.7, 0.6);
 const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
 //    const DEAD_BALL: Color = Color::srgb(0.9, 0.0, 0.9);
 const LIVE_BALL: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -144,6 +146,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .insert_resource(Configuration::new())
         .insert_resource(GameLevelResource::new())
         .insert_resource(ExitDelay{ seconds: None})
+        .insert_resource(CameraPosition::new())
         .add_systems(Update, (
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
@@ -283,7 +286,36 @@ fn release_toys(
         }
     }
 }
+#[derive(Resource)]
+struct CameraPosition {
+    next: usize,
+    positions: Vec<Transform>,
+}
+impl CameraPosition {
+    fn new() -> Self {
+        let v = vec![
+            Transform::from_xyz(1.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(1.0, 30.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(1.0, 5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y)
+        ];
+        Self {
+            next: 0,
+            positions: v,
+        }
+    }
+    fn reset(&mut self) {
+        self.next = 0;
+    }
 
+    fn next(&mut self) -> Transform {
+        if self.next >= self.positions.len() {
+            self.next = 0;
+        }
+        let p = self.positions[self.next];
+        self.next += 1;
+        p
+    }
+}
 #[derive(Resource)]
 struct ExitDelay {
     seconds: Option<f32>,
@@ -370,7 +402,7 @@ pub struct Configuration {
     description: Option<String>,
     pace: Option<u32>,
     background_color: Option<String>,
-    title_color: Option<String>,
+//    title_color: Option<String>,
     table_color: Option<String>,
     barrier_color: Option<String>,
     fence_color: Option<String>,
@@ -677,6 +709,8 @@ fn check_external_channel(
     mut scoreboard: ResMut<Scoreboard>,
     mut win_query: Query<&mut Window, With<PrimaryWindow>>,
     mut name_query: Query<&mut TextMesh, With<GameName>>,
+    mut camera_position: ResMut<CameraPosition>,
+    mut q_camera: Query<&mut Transform, With<CameraController>>,
 
 ) {
     while let Some(message) = external_consumer.try_read() {
@@ -739,6 +773,11 @@ fn check_external_channel(
             "play" => {
                 scoreboard.reset();
                 scoreboard.set_starting_level(1);
+                camera_position.reset();
+                for mut transform in q_camera.iter_mut() {
+                    *transform = camera_position.next();
+                }
+
  //               scoreboard.next_level();
                 //    println!("Sending next level from start_new_game");
                 commands.write_message(PlayLevel {});
@@ -802,13 +841,10 @@ fn clear_scoring_text(
 fn toggle_overhead_camera(
     mut q_camera: Query<&mut Transform, With<CameraController>>,
     mut q_light: Query<&mut Transform, (With<PointLight>, Without<CameraController>)>,
+    mut camera_position: ResMut<CameraPosition>,
 ) {
     for mut transform in q_camera.iter_mut() {
-        if transform.translation.z < 25.0 {
-            *transform = Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y);
-        } else {
-            *transform = Transform::from_xyz(0.0, 30.0, 0.2).looking_at(Vec3::ZERO, Vec3::Y);
-        }
+        *transform = camera_position.next();
     }
     // Move the light, too
     for mut transform in q_light.iter_mut() {
@@ -948,7 +984,7 @@ fn score_fallen_entities(
     // score and cleanup old toys and balls that are out of range
     for (entity, transform, point_value) in toy_query.iter() {
         //        scoreboard.remaining += 1;
-        if transform.translation.y < -15.0 {
+        if transform.translation.y < FLOOR_LEVEL {
             println!("Toy despawned {} points", point_value.value);
             if scoreboard.running {
                 scoreboard.hit(point_value.value);
@@ -2128,6 +2164,7 @@ fn setup_game_board(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mut camera_position: ResMut<CameraPosition>,
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
     // The countdown clock
@@ -2244,7 +2281,7 @@ fn setup_game_board(
     commands.spawn((
         CameraController{},
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
+        camera_position.next(),
     ));
 
     // Spawn a Light
@@ -2273,6 +2310,105 @@ fn setup_game_board(
         MeshMaterial3d(materials.add(TABLE_COLOR)),
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(0.0, -0.25, 0.0),
+    ));
+
+    // Floor
+    commands.spawn((
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Rectangle::new(50.0, 60.0)))),
+        MeshMaterial3d(materials.add(FLOOR_COLOR)),
+        Transform {
+            translation: Vec3::new(0.0, FLOOR_LEVEL, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
+            scale: Vec3::splat(1.0),
+        },
+    ));
+    // Back wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(25.0, 20.0, 0.25),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Rectangle::new(50.0, 40.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform {
+            translation: Vec3::new(0.0, -FLOOR_LEVEL/2.0, -20.0),
+            rotation: Quat::from_axis_angle(Vec3::X, 0.0),
+            scale: Vec3::splat(1.0),
+        },
+    ));
+    // Left wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(20.0, 20.0, 0.25),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform {
+            translation: Vec3::new(-20.0, -FLOOR_LEVEL/2.0, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
+            scale: Vec3::splat(1.0),
+        },
+    ));
+    // Right wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(20.0, 20.0, 0.25),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform {
+            translation: Vec3::new(20.0, -FLOOR_LEVEL/2.0, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, -FRAC_PI_2),
+            scale: Vec3::splat(1.0),
+        },
+    ));
+    // Legs for table
+    commands.spawn((
+        Table {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.5, 10.0, 0.5),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform::from_xyz(-8.0, -10.0, 8.0),
+    ));
+    commands.spawn((
+        Table {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.5, 10.0, 0.5),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform::from_xyz(8.0, -10.0, 8.0),
+    ));
+
+    commands.spawn((
+        Table {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.5, 10.0, 0.5),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform::from_xyz(-8.0, -10.0, -8.0),
+    ));
+    commands.spawn((
+        Table {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.5, 10.0, 0.5),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        MeshMaterial3d(materials.add(WALL_COLOR)),
+        Transform::from_xyz(8.0, -10.0, -8.0),
     ));
 
     // Title
