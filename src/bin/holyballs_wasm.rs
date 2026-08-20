@@ -35,7 +35,9 @@ fn reply_handler(message: ExternalMessage) {
         let _tx = tx_handle.unwrap();
         match message.action.as_str() {
             "game_ended" => {
-                game_ended();
+                unsafe {
+                    game_ended();
+                }
             }
             _ => {
                 println!("Invalid reply message from game: {:?}", message.action);
