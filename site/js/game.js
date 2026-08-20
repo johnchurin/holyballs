@@ -20,7 +20,6 @@ closeBtn.onclick = () => {
     }
     console.log("Exiting Game");
 };
-// Load up the menu
 fetchMenu();
 
 const container = document.getElementById("fullscreenContainer");
@@ -109,7 +108,9 @@ function startGame() {
     play();
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
-    canvas.focus();
+    canvas.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+    });    canvas.focus();
     console.log("Focus set");
 }
 function cleanup_after_play() {

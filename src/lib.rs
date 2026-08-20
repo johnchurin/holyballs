@@ -144,11 +144,19 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .insert_resource(CameraPosition::new())
         .insert_resource(TransformGrid::new(6,5, 10.5))
         .add_systems(Update, (
+            start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
+            start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
+            restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
+            update_scoreboard.run_if(resource_changed::<Scoreboard>),
+            update_countdown_face.run_if(resource_changed::<CountdownBoard>),
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
             drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
             mouse_down.run_if(input_just_pressed(MouseButton::Left)),
             mouse_up.run_if(input_just_released(MouseButton::Left)),
+            handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
+        ))
+        .add_systems(Update, (
             impulse.run_if(input_just_pressed(KeyCode::Space)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad5)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -156,17 +164,9 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             impulse.run_if(input_just_pressed(KeyCode::ArrowRight)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad6)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowDown)),
-        ))
-        .add_systems(Update, (
             impulse.run_if(input_just_pressed(KeyCode::Numpad2)),
             impulse.run_if(input_just_pressed(KeyCode::ArrowUp)),
             impulse.run_if(input_just_pressed(KeyCode::Numpad8)),
-            start_new_game.run_if(input_just_pressed(KeyCode::KeyG)),
-            start_next_level.run_if(input_just_pressed(KeyCode::KeyN)),
-            restart_same_level.run_if(input_just_pressed(KeyCode::KeyR)),
-            update_scoreboard.run_if(resource_changed::<Scoreboard>),
-            update_countdown_face.run_if(resource_changed::<CountdownBoard>),
-            delayed_exit,
             // mouse_look_system.run_if(|mouse: Res<ButtonInput<MouseButton>>| mouse.pressed(MouseButton::Left)),
         ))
         .add_systems(Update, (
@@ -175,10 +175,10 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
              handle_color_update,
         ))
         .add_systems(Update, (
+            delayed_exit,
             check_external_channel,
         ))
         .add_systems(Update, (
-            handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
             handle_mouse_move,
             handle_point_value_message,
             handle_activate_game,
@@ -2166,7 +2166,7 @@ fn setup_game_board(
             shadow_maps_enabled: true,
             intensity: 25_000_000.0,
             range: 80.0,
-            radius: 1.0,
+            radius: 5.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
