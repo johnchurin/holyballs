@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{BufReader};
 use std::sync::OnceLock;
 use crossfire::mpmc::Array;
+use holyballs::config::{MenuItem, Menus};
 
 const CONFIG_DIR: &str = "config";
 static TX: OnceLock<MAsyncTx<Array<ExternalMessage>>> = OnceLock::new();
@@ -138,14 +139,14 @@ fn get_menu() -> Result<Menus, String> {
     let pathbuf = resolve_path(Path::new("menu.json"));
     let file = File::open(pathbuf);
     if file.is_err() {
-        return Result::Err("Error opening menu file".to_string());
+        return Err("Error opening menu file".to_string());
     }
     let r: serde_json::Result<Menus> = serde_json::from_reader(BufReader::new(file.unwrap()));
     if r.is_ok() {
-        Result::Ok(r.unwrap())
+        Ok(r.unwrap())
     } else {
         println!("Error: {:?}", r.err());
-        Result::Err("Parse error:".to_string())
+        Err("Parse error:".to_string())
     }
 }
 

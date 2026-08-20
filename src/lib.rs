@@ -1,6 +1,7 @@
 #![feature(trivial_bounds)]
 
 pub mod grid;
+pub mod config;
 
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -20,18 +21,16 @@ use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshS
 use bevy::asset::AssetMetaCheck;
 use crossfire::*;
 use crossfire::mpmc::Array;
-use serde::{Deserialize, Serialize};
-use serde_json::Result;
+use crate::config::{Configuration, GameLevel};
 use crate::grid::TransformGrid;
+
 // Holy Balls 3d game
 // Copyright (C) 2026 John Churin
-
 
 const BUMP: f32 = 2.5;
 
 const FLOOR_LEVEL: f32 = -15.0;
 const FLOOR_COLOR: Color = Color::srgb(0.7, 0.7, 0.6);
-const BACKGROUND_COLOR: Color = Color::srgb(0.7, 0.8, 0.7);
 //    const DEAD_BALL: Color = Color::srgb(0.9, 0.0, 0.9);
 const LIVE_BALL: Color = Color::srgb(1.0, 0.0, 0.0);
 const CONE_COLOR: Color = Color::srgb(1.0, 0.0, 1.0);
@@ -39,13 +38,9 @@ const DISK_COLOR: Color = Color::srgb(0.0, 0.9, 0.5);
 const BOX_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
 const BOX_COLOR_TRANSPARENT: Color = Color::srgba(0.0, 0.0, 1.0, 0.2);
 const LIGHT_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const TARGET_COLOR: Color = Color::srgb(255.0 / 255.0, 105.0 / 255.0, 180.0 / 255.0);
-const TABLE_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
-const FENCE_COLOR: Color = Color::srgba(0.0, 0.9, 0.0, 0.4);
 const BLACK_DISK_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const WHITE_DISK_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
-const WALL_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
 const TEXT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 //    const CYLINDER_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const _CYLINDER_HALF_HEIGHT: f32 = 2.0;
@@ -137,7 +132,6 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
 // cli only        .add_systems(Startup, setup_configuration)
         .add_systems(Startup, setup_game_board)
         .insert_resource(ToyDrop::new())
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(external_consumer)
         .insert_resource(external_reply)
         .insert_resource(Scoreboard::new())
@@ -332,20 +326,6 @@ struct ScoringHelpTimer {
     duration: f32,
     active: bool,
 }
-// A list of available games, deserialized from json
-#[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize, Asset, TypePath)]
-pub struct Menus {
-    pub title: String,
-    pub entries: Vec<MenuItem>,
-}
-#[derive(Default, Clone, Debug)]
-#[derive(Serialize, Deserialize, Asset, TypePath)]
-pub struct MenuItem {
-    pub name: String,
-    pub display: String,
-    pub file: String,
-}
 
 #[derive(Resource)]
 struct GameLevelResource {
@@ -365,122 +345,6 @@ impl GameLevelResource {
     }
     fn clear_game_level(&mut self) {
         self.game_level = None;
-    }
-}
-#[derive(Default, Clone, Debug)]
-#[derive(Deserialize, Asset, TypePath)]
-struct GameLevel {
-    seconds: Option<i32>,
-    balls: Option<i32>,
-    barriers: Option<i32>,
-    blocks: Option<i32>,
-    disks: Option<i32>,
-    cones: Option<i32>,
-    blacks: Option<i32>,
-    dips: Option<i32>,
-    bumpys: Option<i32>,
-    targets: Option<i32>,
-    spikeys: Option<i32>,
-    ghosts: Option<i32>,
-    lifesavers: Option<i32>,
-    cylinders: Option<i32>,
-    fences: Option<i32>,
-    wind: Option<Vec3>,
-    help: String,
-}
-impl GameLevel {
-    // If no balls specified, give them three balls
-    fn get_ball_count(&self) -> i32 {
-        if self.balls.is_some() {
-            let b = self.balls.unwrap();
-            if b < 1 {
-                3
-            } else { b }
-        } else { 3 }
-    }
-}
-#[derive(Resource)]
-#[derive(Default)]
-#[derive(Deserialize, Asset, TypePath)]
-pub struct Configuration {
-    name: Option<String>,
-    _description: Option<String>,
-    pace: Option<u32>,
-    background_color: Option<String>,
-    _title_color: Option<String>,
-    table_color: Option<String>,
-    barrier_color: Option<String>,
-    fence_color: Option<String>,
-    wall_color: Option<String>,
-    levels: Vec<GameLevel>,
-}
-impl Configuration {
-    fn new() -> Self {
-        Self {
-            levels: Vec::new(),
-            name: Some("Initial".to_string()),
-            ..Configuration::default()
-        }
-    }
-
-    fn get_background_color(&self) -> Color {
-        if self.background_color.is_some() {
-            Srgba::hex(self.background_color.as_ref().unwrap()).unwrap().into()
-        } else {
-            BACKGROUND_COLOR
-        }
-    }
-    fn get_table_color(&self) -> Color {
-        if self.table_color.is_some() {
-            Srgba::hex(self.table_color.as_ref().unwrap()).unwrap().into()
-        } else {
-            TABLE_COLOR
-        }
-    }
-    fn get_barrier_color(&self) -> Color {
-        if self.barrier_color.is_some() {
-            Srgba::hex(self.barrier_color.as_ref().unwrap()).unwrap().into()
-        } else {
-            BARRIER_COLOR
-        }
-    }
-    fn get_fence_color(&self) -> Color {
-        if self.fence_color.is_some() {
-            Srgba::hex(self.fence_color.as_ref().unwrap()).unwrap().into()
-        } else {
-            FENCE_COLOR
-        }
-    }
-    fn get_wall_color(&self) -> Color {
-        if self.wall_color.is_some() {
-            Srgba::hex(self.wall_color.as_ref().unwrap()).unwrap().into()
-        } else {
-            WALL_COLOR
-        }
-    }
-    fn get_level_count(&self) -> i32 {
-        self.levels.len() as i32
-    }
-
-    fn get_name(&self) -> String {
-        if self.name.is_some() {
-            self.name.clone().unwrap()
-        } else {
-            String::from("No gemae name")
-        }
-    }
-    fn _add(&mut self, level: GameLevel) -> &mut Self {
-        self.levels.push(level);
-        self
-    }
-
-    fn get_game_level(&self, level: i32) -> Option<&GameLevel> {
-        // Level is 1 origin, levels Vec is zero origin, so we return level-1)
-        if level > self.levels.len() as i32 {
-            None
-        } else {
-            Some(self.levels.get(level as usize - 1).unwrap())
-        }
     }
 }
 impl ScoringHelpTimer {
@@ -725,7 +589,7 @@ fn check_external_channel(
             "load" => {
                 if message.payload.is_some() {
                     let json = message.payload.unwrap();
-                    let config: Result<Configuration> = serde_json::from_str(json.as_str());
+                    let config = Configuration::from_json_string(json);
                     if config.is_ok() {
                         let config = config.unwrap();
                         {
@@ -1217,6 +1081,7 @@ fn create_countdown_board(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     asset_server: &Res<AssetServer>,
+    configuration: &Res<Configuration>,
 ) {
     let font = asset_server.load("fonts/digital_clock.ttf");
     commands.spawn((
@@ -1227,7 +1092,7 @@ fn create_countdown_board(
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 3.0, 8.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
         Collider::cuboid(0.25, 1.5, 4.0),
         Transform::from_xyz(14.5, 5.0, 0.0),
     ));
@@ -1917,8 +1782,8 @@ fn handle_new_toys(
                 toy_drop.add(entity);
             }
         }
-        if configuration.pace.is_some() {
-            toy_drop.start(Duration::from_millis(configuration.pace.unwrap() as u64));
+        if configuration.get_pace().is_some() {
+            toy_drop.start(Duration::from_millis(configuration.get_pace().unwrap() as u64));
         } else {
             toy_drop.start(Duration::from_millis(500));
         }
@@ -2174,10 +2039,11 @@ fn setup_game_board(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut camera_position: ResMut<CameraPosition>,
+    configuration: Res<Configuration>,
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
     // The countdown clock
-    create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server);
+    create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server, &configuration);
     // Scoreboard text
     commands.spawn((
         Score{},
@@ -2248,7 +2114,7 @@ fn setup_game_board(
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
         Collider::cuboid(0.25, 4.0, 7.0),
         Transform::from_xyz(-14.5, 5.0, 0.0),
     ));
@@ -2295,7 +2161,6 @@ fn setup_game_board(
 
     // Spawn a Light
     commands.spawn((
-        //        DirectionalLight::default(),
         PointLight {
             color: Color::from(LIGHT_COLOR),
             shadow_maps_enabled: true,
@@ -2316,7 +2181,7 @@ fn setup_game_board(
         Friction::new(0.5),
         Restitution::new(0.1),
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(25.0, 0.5, 20.0)))),
-        MeshMaterial3d(materials.add(TABLE_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_table_color())),
         Collider::cuboid(12.5, 0.25, 10.0),
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));
@@ -2340,7 +2205,7 @@ fn setup_game_board(
         Collider::cuboid(25.0, 20.0, 0.25),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Rectangle::new(50.0, 40.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
         Transform {
             translation: Vec3::new(0.0, -FLOOR_LEVEL/2.0, -20.0),
             rotation: Quat::from_axis_angle(Vec3::X, 0.0),
@@ -2355,7 +2220,7 @@ fn setup_game_board(
         Collider::cuboid(20.0, 20.0, 0.25),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
         Transform {
             translation: Vec3::new(-20.0, -FLOOR_LEVEL/2.0, 0.0),
             rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
@@ -2370,7 +2235,7 @@ fn setup_game_board(
         Collider::cuboid(20.0, 20.0, 0.25),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
         Transform {
             translation: Vec3::new(20.0, -FLOOR_LEVEL/2.0, 0.0),
             rotation: Quat::from_axis_angle(Vec3::Y, -FRAC_PI_2),
@@ -2385,7 +2250,7 @@ fn setup_game_board(
         Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_table_color())),
         Transform::from_xyz(-8.0, -10.5, 8.0),
     ));
     commands.spawn((
@@ -2395,7 +2260,7 @@ fn setup_game_board(
         Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_table_color())),
         Transform::from_xyz(8.0, -10.5, 8.0),
     ));
 
@@ -2406,7 +2271,7 @@ fn setup_game_board(
         Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_table_color())),
         Transform::from_xyz(-8.0, -10.5, -8.0),
     ));
     commands.spawn((
@@ -2416,7 +2281,7 @@ fn setup_game_board(
         Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
-        MeshMaterial3d(materials.add(WALL_COLOR)),
+        MeshMaterial3d(materials.add(configuration.get_table_color())),
         Transform::from_xyz(8.0, -10.5, -8.0),
     ));
 
