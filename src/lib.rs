@@ -300,7 +300,8 @@ impl CameraPosition {
         let v = vec![
             Transform::from_xyz(1.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
             Transform::from_xyz(1.0, 30.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Transform::from_xyz(1.0, 5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y)
+            Transform::from_xyz(1.0, 5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
+//            Transform::from_xyz(1.0, -5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ];
         Self {
             next: 0,
@@ -660,7 +661,6 @@ impl Scoreboard {
         self.running = false;
     }
     fn start(&mut self) {
-        println!("starting level {}", self.starting_level);
         self.running = true;
     }
     // set next level and return true if this is the last level
@@ -2382,42 +2382,42 @@ fn setup_game_board(
         Table {},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
-        Collider::cuboid(0.5, 10.0, 0.5),
+        Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(WALL_COLOR)),
-        Transform::from_xyz(-8.0, -10.0, 8.0),
+        Transform::from_xyz(-8.0, -10.5, 8.0),
     ));
     commands.spawn((
         Table {},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
-        Collider::cuboid(0.5, 10.0, 0.5),
+        Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(WALL_COLOR)),
-        Transform::from_xyz(8.0, -10.0, 8.0),
+        Transform::from_xyz(8.0, -10.5, 8.0),
     ));
 
     commands.spawn((
         Table {},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
-        Collider::cuboid(0.5, 10.0, 0.5),
+        Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(WALL_COLOR)),
-        Transform::from_xyz(-8.0, -10.0, -8.0),
+        Transform::from_xyz(-8.0, -10.5, -8.0),
     ));
     commands.spawn((
         Table {},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
-        Collider::cuboid(0.5, 10.0, 0.5),
+        Collider::cuboid(0.5, 9.75, 0.5),
         NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 20.0, 1.0)))),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(WALL_COLOR)),
-        Transform::from_xyz(8.0, -10.0, -8.0),
+        Transform::from_xyz(8.0, -10.5, -8.0),
     ));
 
     // Title
