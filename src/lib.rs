@@ -137,7 +137,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .insert_resource(Scoreboard::new())
         .insert_resource(CountdownBoard::new())
         .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
-        .insert_resource(ScoringHelpTimer::new(4.0))
+        .insert_resource(ScoringHelpTimer::new())
         .insert_resource(Configuration::new())
         .insert_resource(GameLevelResource::new())
         .insert_resource(ExitDelay{ seconds: None})
@@ -348,11 +348,12 @@ impl GameLevelResource {
     }
 }
 impl ScoringHelpTimer {
-    fn new(duration: f32) -> Self {
-        Self { entity: None, active: false, duration, start: 0.0 }
+    fn new() -> Self {
+        Self { entity: None, active: false, duration: 4.0, start: 0.0 }
     }
-    fn start(&mut self, entity: Entity, start: f32) {
+    fn start(&mut self, duration: f32, entity: Entity, start: f32) {
         self.entity = Some(entity);
+        self.duration = duration;
         self.active = true;
         self.start = start;
     }
@@ -406,6 +407,7 @@ struct PlayLevel {}
 enum HelpType {
     Score,
     Next,
+    Center,
 }
 #[derive(Message)]
 struct HelpMessage {
@@ -416,6 +418,8 @@ struct HelpMessage {
 struct Score {}
 #[derive(Component)]
 struct HelpWall {}
+#[derive(Component)]
+struct CenterHelp {}
 #[derive(Component)]
 struct ClockBoard {}
 #[derive(Component)]
@@ -736,14 +740,12 @@ fn update_countdown(
         countdown_board.reduce_countdown(time.delta());
         if !countdown_board.is_running() {
             scoreboard.stop();
-            commands.write_message(HelpMessage { help_type: HelpType::Next,
-                text: "Game Over.".to_string() });
-            commands.write_message(HelpMessage { help_type: HelpType::Score,
-                text: "You are out of time.".to_string() });
+            commands.write_message(HelpMessage { help_type: HelpType::Center,
+                text: "Game Over\nOut of time".to_string() });
             // Wha Wha Wha them out
             commands.write_message(SoundMessage { sound_type: SoundType::GameOver });
             // Game over. Leave, but slowly
-            exit_delay.seconds = Some(5.0);
+            exit_delay.seconds = Some(7.0);
         }
     }
 }
@@ -905,10 +907,11 @@ fn score_fallen_entities(
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {
                         if ball.live {
-                            commands.write_message(HelpMessage { help_type: HelpType::Next, text: "Game Over.".to_string() });
+                            commands.write_message(HelpMessage { help_type: HelpType::Center,
+                                text: "Game Over\nOut of balls".to_string() });
                             // Wha Wha Wha them out
                             commands.write_message(SoundMessage { sound_type: SoundType::GameOver });
-                            exit_delay.seconds = Some(5.0);
+                            exit_delay.seconds = Some(7.0);
                         }
                     } else {
                         commands.write_message(
@@ -929,8 +932,9 @@ fn score_fallen_entities(
 
 fn handle_help_message(
     mut messages: MessageReader<HelpMessage>,
-    mut help_query: Query<&mut TextMesh, (With<HelpWall>, Without<ScoringWall>)>,
-    mut score_query: Query<(Entity, &mut TextMesh, &mut Visibility), (With<ScoringWall>, Without<HelpWall>)>,
+    mut help_query: Query<&mut TextMesh, (With<HelpWall>, Without<ScoringWall>, Without<CenterHelp>)>,
+    mut score_query: Query<(Entity, &mut TextMesh, &mut Visibility), (With<ScoringWall>, Without<HelpWall>, Without<CenterHelp>)>,
+    mut center_query: Query<(Entity, &mut TextMesh, &mut Visibility), (With<CenterHelp>, Without<ScoringWall>, Without<HelpWall>)>,
     mut scoring_help_timer: ResMut<ScoringHelpTimer>,
     time: Res<Time>,
 ) {
@@ -945,12 +949,19 @@ fn handle_help_message(
                     } else {
                         text_mesh.text = message.text.clone();
                     }
-                    scoring_help_timer.start(entity, time.elapsed_secs());
+                    scoring_help_timer.start(4.0, entity, time.elapsed_secs());
                 }
             }
             HelpType::Next => {
                 for mut text_mesh in help_query.iter_mut() {
                     text_mesh.text = message.text.clone();
+                }
+            }
+            HelpType::Center => {
+                for (entity, mut text_mesh, mut visibility) in center_query.iter_mut() {
+                    text_mesh.text = message.text.clone();
+                    *visibility = Visibility::Visible {};
+                    scoring_help_timer.start(7.0, entity, time.elapsed_secs());
                 }
             }
         }
@@ -1908,9 +1919,8 @@ fn start_next_level(
     // Did we finish the last level?
     if scoreboard.next_level() {
         scoreboard.stop();
-        commands.write_message(HelpMessage { help_type: HelpType::Score, text: "You won this game.".to_string() });
-        commands.write_message(HelpMessage { help_type: HelpType::Next,
-            text: format!("Game over. You won {} points.", scoreboard.total).to_string() });
+        commands.write_message(HelpMessage { help_type: HelpType::Center,
+            text: format!("Game over\nYou won {} points", scoreboard.total).to_string() });
             exit_delay.seconds = Some(7.0);
     } else {
         //    println!("Sending next level from start_next_Level");
@@ -2149,6 +2159,38 @@ fn setup_game_board(
             translation: Vec3::new(0.0, 4.0, -10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
             scale: Vec3::splat(0.8),
+        },
+    ));
+    // Scoring text
+    commands.spawn((
+        CenterHelp{},
+        Visibility::Hidden,
+        TextMesh {
+            text: "Center Help".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.03,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                justify: JustifyText::Center,
+                ..default()
+            },
+        },
+        NotShadowCaster,
+        Mesh3d::default(),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: TEXT_COLOR,
+            metallic: 0.8,
+            perceptual_roughness: 0.3,
+            reflectance: 0.8,
+            double_sided: false,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform {
+            translation: Vec3::new(0.0, 3.0, 5.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
+            scale: Vec3::splat(2.0),
         },
     ));
 
