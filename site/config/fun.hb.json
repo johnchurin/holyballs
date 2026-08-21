@@ -1,7 +1,7 @@
 {
   "name": "Fun",
   "pace": 800,
-  "background_color": "#FFE66D",
+  "scoreboard_color": "#FFE66D",
   "wall_color": "#FF3B30",
   "table_color": "#FF9500",
   "fence_color": "#FF950070",

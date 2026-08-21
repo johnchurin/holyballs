@@ -1,6 +1,6 @@
 {
   "name": "Hard",
-  "background_color": "#FDF0D5",
+  "scoreboard_color": "#FDF0D5",
   "wall_color": "#7CFF6B",
   "table_color": "#00E5FF",
   "fence_color": "#00E5FF70",

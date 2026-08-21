@@ -1,7 +1,7 @@
 {
   "name": "Challenge",
   "pace": 500,
-  "background_color": "#95D5B2",
+  "scoreboard_color": "#95D5B2",
   "wall_color": "#2D6A4F",
   "table_color": "#FFB703",
   "fence_color": "#FFB70370",

@@ -10,6 +10,7 @@ const BARRIER_COLOR: Color = Color::srgb(1.0, 0.64, 0.0);
 const FENCE_COLOR: Color = Color::srgba(0.0, 0.9, 0.0, 0.4);
 const TABLE_COLOR: Color = Color::srgb(0.0, 1.0, 0.0);
 const WALL_COLOR: Color = Color::srgb(173.0/255.0, 216.0/255.0, 230.0/255.0);
+const SCOREBOARD_COLOR: Color = Color::srgb(0.8, 0.2, 0.2);
 
 // A list of available games, deserialized from json
 #[derive(Default, Clone, Debug)]
@@ -39,6 +40,7 @@ pub struct Configuration {
     barrier_color: Option<String>,
     fence_color: Option<String>,
     wall_color: Option<String>,
+    scoreboard_color: Option<String>,
     levels: Vec<GameLevel>,
 }
 impl Configuration {
@@ -90,6 +92,13 @@ impl Configuration {
             Srgba::hex(self.wall_color.as_ref().unwrap()).unwrap().into()
         } else {
             WALL_COLOR
+        }
+    }
+    pub fn get_scoreboard_color(&self) -> Color {
+        if self.scoreboard_color.is_some() {
+            Srgba::hex(self.scoreboard_color.as_ref().unwrap()).unwrap().into()
+        } else {
+            SCOREBOARD_COLOR
         }
     }
     pub fn get_level_count(&self) -> i32 {

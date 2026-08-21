@@ -292,9 +292,12 @@ struct CameraPosition {
 impl CameraPosition {
     fn new() -> Self {
         let v = vec![
-            Transform::from_xyz(1.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Transform::from_xyz(1.0, 30.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Transform::from_xyz(1.0, 5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(0.0, 10.0, 25.0).looking_at(Vec3::ZERO, Vec3::Y),
+//            Transform::from_xyz(0.0, 10.0, 75.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // Transform::from_xyz(0.0, -4.0, 75.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // Transform::from_xyz(-15.0, 10.0, 35.0).looking_at(Vec3::new(-15.0, 0.0, 0.0), Vec3::Y),
+            // Transform::from_xyz(15.0, 10.0, 35.0).looking_at(Vec3::new(15.0, 0.0, 0.0), Vec3::Y),
+            Transform::from_xyz(0.0, 50.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
 //            Transform::from_xyz(1.0, -5.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ];
         Self {
@@ -381,6 +384,7 @@ struct ColorMessage {
     wall_color: Color,
     table_color: Color,
     background_color: Color,
+    scoreboard_color: Color,
 }
 
 #[derive(Message)]
@@ -426,6 +430,8 @@ struct ClockBoard {}
 struct ClockBoardFace {}
 #[derive(Component)]
 struct ScoringWall {}
+#[derive(Component)]
+struct Scoreboards {}
 
 #[derive(Component)]
 struct Walls {}
@@ -1087,6 +1093,26 @@ fn handle_asset_color_propagation(
         }
     }
 }
+fn create_scoreboard(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    configuration: &Res<Configuration>,
+) {
+    // Scoreboard
+    commands.spawn((
+        Scoreboards{},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Friction::new(0.5),
+        Restitution::new(0.1),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25, 8.0, 14.0)))),
+        MeshMaterial3d(materials.add(configuration.get_scoreboard_color())),
+        Collider::cuboid(0.125, 4.0, 7.0),
+        Transform::from_xyz(-14.5, 5.0, 0.0),
+    ));
+
+}
 fn create_countdown_board(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -1097,14 +1123,14 @@ fn create_countdown_board(
     let font = asset_server.load("fonts/digital_clock.ttf");
     commands.spawn((
         ClockBoard {},
-        Walls{},
+        Scoreboards{},
         CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
         RigidBody::Fixed,
         Friction::new(0.5),
         Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 3.0, 8.0)))),
-        MeshMaterial3d(materials.add(configuration.get_wall_color())),
-        Collider::cuboid(0.25, 1.5, 4.0),
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.25, 3.0, 8.0)))),
+        MeshMaterial3d(materials.add(configuration.get_scoreboard_color())),
+        Collider::cuboid(0.125, 1.5, 4.0),
         Transform::from_xyz(14.5, 5.0, 0.0),
     ));
     // .with_children(|parent| {
@@ -1566,7 +1592,7 @@ fn create_targets(
     if game_level.targets.is_some() {
         let count = game_level.targets.unwrap();
         let external_force = make_external_force(game_level);
-        for _n in 0..count {
+        if count > 0 {
             commands.spawn((
                 CollisionGroups::new(TOY_GROUP, BALL_GROUP | FIXED_GROUP | TOY_GROUP),
                 ToyType { dynamic: false },
@@ -1580,7 +1606,7 @@ fn create_targets(
                 Collider::cylinder(0.1, 0.5),
                 Mesh3d(meshes.add(Mesh::from(Cylinder::new(0.50, 0.2)))),
                 MeshMaterial3d(materials.add(TARGET_COLOR)),
-                Transform::from_xyz(-14.0, 3.0, 5.0).with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
+                Transform::from_xyz(-14.25, 3.0, 5.0).with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ));
         }
         if count > 1 {
@@ -1597,7 +1623,7 @@ fn create_targets(
                 Collider::cuboid(0.1, 1.0, 1.0),
                 Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.2, 1.5, 1.5)))),
                 MeshMaterial3d(materials.add(TARGET_COLOR)),
-                Transform::from_xyz(-14.0, 7.0, -5.0),
+                Transform::from_xyz(-14.25, 7.0, -5.0),
             ));
         }
         if count > 2 {
@@ -1611,10 +1637,10 @@ fn create_targets(
                 external_force,
                 Friction::new(0.1),
                 Restitution::new(0.1),
-                Collider::cuboid(0.1, 1.0, 1.0),
-                Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.2, 1.5, 1.5)))),
+                Collider::cuboid(1.0, 1.0, 0.1),
+                Mesh3d(meshes.add(Mesh::from(Cuboid::new(2.0, 2.0, 0.2)))),
                 MeshMaterial3d(materials.add(TARGET_COLOR)),
-                Transform::from_xyz(-14.0, 7.0, 5.0),
+                Transform::from_xyz(-8.0, 4.0, -14.5),
             ));
         }
     }
@@ -1757,6 +1783,7 @@ fn handle_color_update(
     mut materials: ResMut<Assets<StandardMaterial>>,
     table_query: Query<&MeshMaterial3d<StandardMaterial>, With<Table>>,
     wall_query: Query<&MeshMaterial3d<StandardMaterial>, With<Walls>>,
+    scoreboards_query: Query<&MeshMaterial3d<StandardMaterial>, With<Scoreboards>>,
     mut commands: Commands,
 ) {
     for cm in messages.read() {
@@ -1773,6 +1800,13 @@ fn handle_color_update(
             if mat.is_some() {
                 let mut mat = mat.unwrap();
                 mat.base_color = cm.wall_color;
+            }
+        }
+        for handle in &scoreboards_query {
+            let mat = materials.get_mut(handle);
+            if mat.is_some() {
+                let mut mat = mat.unwrap();
+                mat.base_color = cm.scoreboard_color;
             }
         }
     }
@@ -1859,6 +1893,7 @@ fn handle_new_level(
             table_color: configuration.get_table_color(),
             wall_color: configuration.get_wall_color(),
             background_color: configuration.get_background_color(),
+            scoreboard_color: configuration.get_scoreboard_color(),
         });
         let game_level = game_level.unwrap();
         game_level_res.set_game_level(game_level);
@@ -2053,38 +2088,8 @@ fn setup_game_board(
 ) {
     let font = asset_server.load("fonts/Archivo.ttf");
     // The countdown clock
+    create_scoreboard(&mut commands, &mut meshes, &mut materials, &configuration);
     create_countdown_board(&mut commands, &mut meshes, &mut materials, &asset_server, &configuration);
-    // Scoreboard text
-    commands.spawn((
-        Score{},
-        TextMesh {
-            text: "Starting".to_string(),
-            font: font.clone(),
-            style: TextMeshStyle {
-                depth: 0.03,
-                subdivision: 8,
-                anchor: TextAnchor::Center,
-                justify: JustifyText::Center,
-                ..default()
-            },
-        },
-        NotShadowCaster,
-        Mesh3d::default(),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: TEXT_COLOR,
-            metallic: 0.8,             // Slightly less metallic to show some base color
-            perceptual_roughness: 0.3, // Rougher to catch more light highlights
-            reflectance: 0.8,
-            double_sided: false,
-            cull_mode: None,
-            ..default()
-        })),
-        Transform {
-            translation: Vec3::new(-14.0, 5.0, 0.0),
-            rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),   // 90 degrees
-            scale: Vec3::splat(0.9),
-        },
-    ));
     // Help wall
     commands.spawn((
         HelpWall{},
@@ -2116,17 +2121,36 @@ fn setup_game_board(
             scale: Vec3::splat(0.6),
         },
     ));
-    // Scoreboard wall
+    // Scoreboard text
     commands.spawn((
-        Walls{},
-        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
-        RigidBody::Fixed,
-        Friction::new(0.5),
-        Restitution::new(0.1),
-        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 8.0, 14.0)))),
-        MeshMaterial3d(materials.add(configuration.get_wall_color())),
-        Collider::cuboid(0.25, 4.0, 7.0),
-        Transform::from_xyz(-14.5, 5.0, 0.0),
+        Score{},
+        TextMesh {
+            text: "Starting".to_string(),
+            font: font.clone(),
+            style: TextMeshStyle {
+                depth: 0.03,
+                subdivision: 8,
+                anchor: TextAnchor::Center,
+                justify: JustifyText::Center,
+                ..default()
+            },
+        },
+        NotShadowCaster,
+        Mesh3d::default(),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: TEXT_COLOR,
+            metallic: 0.8,             // Slightly less metallic to show some base color
+            perceptual_roughness: 0.3, // Rougher to catch more light highlights
+            reflectance: 0.8,
+            double_sided: false,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform {
+            translation: Vec3::new(-14.125, 5.0, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),   // 90 degrees
+            scale: Vec3::splat(0.9),
+        },
     ));
 
     // Scoring text
@@ -2215,6 +2239,50 @@ fn setup_game_board(
         Transform::from_xyz(0.0, 20.0, 10.0),
     ));
 
+    // Floor
+    commands.spawn((
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Rectangle::new(250.0, 250.0)))),
+        MeshMaterial3d(materials.add(FLOOR_COLOR)),
+        Transform {
+            translation: Vec3::new(0.0, FLOOR_LEVEL, 0.0),
+            rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
+            scale: Vec3::splat(1.0),
+        },
+    ));
+    // Back wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(15.0, 20.0, 0.25),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(30.0, 40.0, 0.5)))),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
+        Transform::from_xyz(0.0, 0.0, -15.0),
+    ));
+    // Left wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.25, 20.0, 20.0),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 40.0, 40.0)))),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
+        Transform::from_xyz(-15.0, 0.0, 0.0),
+    ));
+    // Right wall
+    commands.spawn((
+        Walls {},
+        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
+        RigidBody::Fixed,
+        Collider::cuboid(0.25, 20.0, 20.0),
+        NotShadowReceiver,
+        Mesh3d(meshes.add(Mesh::from(Cuboid::new(0.5, 40.0, 40.0)))),
+        MeshMaterial3d(materials.add(configuration.get_wall_color())),
+        Transform::from_xyz(15.0, 0.0, 0.0),
+    ));
     // Table. the top of the surface is at y=0.0
     commands.spawn((
         Table{},
@@ -2228,62 +2296,6 @@ fn setup_game_board(
         Transform::from_xyz(0.0, -0.25, 0.0),
     ));
 
-    // Floor
-    commands.spawn((
-        NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Rectangle::new(50.0, 60.0)))),
-        MeshMaterial3d(materials.add(FLOOR_COLOR)),
-        Transform {
-            translation: Vec3::new(0.0, FLOOR_LEVEL, 0.0),
-            rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
-            scale: Vec3::splat(1.0),
-        },
-    ));
-    // Back wall
-    commands.spawn((
-        Walls {},
-        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
-        RigidBody::Fixed,
-        Collider::cuboid(25.0, 20.0, 0.25),
-        NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Rectangle::new(50.0, 40.0)))),
-        MeshMaterial3d(materials.add(configuration.get_wall_color())),
-        Transform {
-            translation: Vec3::new(0.0, -FLOOR_LEVEL/2.0, -20.0),
-            rotation: Quat::from_axis_angle(Vec3::X, 0.0),
-            scale: Vec3::splat(1.0),
-        },
-    ));
-    // Left wall
-    commands.spawn((
-        Walls {},
-        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
-        RigidBody::Fixed,
-        Collider::cuboid(20.0, 20.0, 0.25),
-        NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
-        MeshMaterial3d(materials.add(configuration.get_wall_color())),
-        Transform {
-            translation: Vec3::new(-20.0, -FLOOR_LEVEL/2.0, 0.0),
-            rotation: Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
-            scale: Vec3::splat(1.0),
-        },
-    ));
-    // Right wall
-    commands.spawn((
-        Walls {},
-        CollisionGroups::new(FIXED_GROUP, BALL_GROUP | TOY_GROUP),
-        RigidBody::Fixed,
-        Collider::cuboid(20.0, 20.0, 0.25),
-        NotShadowReceiver,
-        Mesh3d(meshes.add(Mesh::from(Rectangle::new(40.0, 40.0)))),
-        MeshMaterial3d(materials.add(configuration.get_wall_color())),
-        Transform {
-            translation: Vec3::new(20.0, -FLOOR_LEVEL/2.0, 0.0),
-            rotation: Quat::from_axis_angle(Vec3::Y, -FRAC_PI_2),
-            scale: Vec3::splat(1.0),
-        },
-    ));
     // Legs for table
     commands.spawn((
         Table {},
@@ -2293,7 +2305,7 @@ fn setup_game_board(
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(configuration.get_table_color())),
-        Transform::from_xyz(-8.0, -10.5, 8.0),
+        Transform::from_xyz(-8.0, -10.0, 8.0),
     ));
     commands.spawn((
         Table {},
@@ -2303,7 +2315,7 @@ fn setup_game_board(
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(configuration.get_table_color())),
-        Transform::from_xyz(8.0, -10.5, 8.0),
+        Transform::from_xyz(8.0, -10.0, 8.0),
     ));
 
     commands.spawn((
@@ -2314,7 +2326,7 @@ fn setup_game_board(
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(configuration.get_table_color())),
-        Transform::from_xyz(-8.0, -10.5, -8.0),
+        Transform::from_xyz(-8.0, -10.0, -8.0),
     ));
     commands.spawn((
         Table {},
@@ -2324,7 +2336,7 @@ fn setup_game_board(
         NotShadowReceiver,
         Mesh3d(meshes.add(Mesh::from(Cuboid::new(1.0, 19.5, 1.0)))),
         MeshMaterial3d(materials.add(configuration.get_table_color())),
-        Transform::from_xyz(8.0, -10.5, -8.0),
+        Transform::from_xyz(8.0, -10.0, -8.0),
     ));
 
     // Title
@@ -2351,9 +2363,9 @@ fn setup_game_board(
             ..default()
         })),
         Transform {
-            translation: Vec3::new(0., 7., -10.0),
+            translation: Vec3::new(0., 7., -14.75),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.),
-            scale: Vec3::new(4.0, 4.0, 2.0),
+            scale: Vec3::new(3.0, 3.0, 2.0),
         },
     ));
     // game_name

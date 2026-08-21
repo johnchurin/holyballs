@@ -1,7 +1,7 @@
 {
   "name": "Beginner",
   "pace": 2000,
-  "background_color": "#F7F7FF",
+  "scoreboard_color": "#F7F7FF",
   "wall_color": "#00F5FF",
   "table_color": "#7C4DFF",
   "fence_color": "#7C4DFF70",
