@@ -2188,9 +2188,9 @@ fn setup_game_board(
             ..default()
         })),
         Transform {
-            translation: Vec3::new(0.0, 3.0, 5.0),
+            translation: Vec3::new(0.0, 3.0, 10.0),
             rotation: Quat::from_axis_angle(Vec3::Y, 0.0),
-            scale: Vec3::splat(2.0),
+            scale: Vec3::splat(1.75),
         },
     ));
 
