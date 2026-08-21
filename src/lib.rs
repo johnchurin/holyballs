@@ -686,16 +686,17 @@ fn delayed_exit(
     if exit_delay.seconds.is_some() {
         exit_delay.seconds = Some(exit_delay.seconds.unwrap() - time.delta_secs());
         if exit_delay.seconds.unwrap() <= 0.0 {
-            handle_exit(external_reply);
-            exit_delay.seconds = None;
+            handle_exit(external_reply, exit_delay);
         }
     }
 }
 fn handle_exit(
 //   mut commands: Commands,
    external_reply: Res<ExternalReply>,
+    mut exit_delay: ResMut<ExitDelay>,
 )
 {
+    exit_delay.seconds = None;
     // Wasm we just tell js w're done. Engine stays running.
     // Same for cli?
     external_reply.reply(ExternalMessage{action: "game_ended".to_string(), payload: None});
@@ -705,9 +706,11 @@ fn clear_scoring_text(
     time: Res<Time>,
     mut timer: ResMut<ScoringHelpTimer>,
     mut query: Query<&mut Visibility>,
+    scoreboard: Res<Scoreboard>,
 ) {
     if timer.active {
-        if timer.entity.is_some() && time.elapsed_secs() > timer.start + timer.duration {
+        if timer.entity.is_some() && time.elapsed_secs() > timer.start + timer.duration ||
+                !scoreboard.running {
             if let Ok(mut visibility) = query.get_mut(timer.entity.unwrap()) {
                 *visibility = Visibility::Hidden;
             }
