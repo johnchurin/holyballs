@@ -183,8 +183,10 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             handle_point_value_message,
             handle_activate_game,
             handle_impulse_message,
+            release_toys,
         ))
         .add_systems(Update, (
+            setup_new_level,
             handle_new_level,
             handle_sensor_events,
             handle_help_message,
@@ -193,7 +195,6 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             score_fallen_entities,
             handle_ball_message,
             handle_new_toys,
-            release_toys,
         ))
         .add_message::<NewToysMessage>()
         .add_message::<ColorMessage>()
@@ -203,6 +204,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .add_message::<ActivateGameMessage>()
         .add_message::<ImpulseMessage>()
         .add_message::<HelpMessage>()
+        .add_message::<SetupLevel>()
         .add_message::<PlayLevel>()
         .add_message::<SoundMessage>()
         .run();
@@ -408,6 +410,8 @@ struct BallMessage {
 }
 #[derive(Message)]
 struct PlayLevel {}
+#[derive(Message)]
+struct SetupLevel {}
 enum HelpType {
     Score,
     Next,
@@ -682,8 +686,10 @@ fn delayed_exit(
     time: Res<Time>,
     mut exit_delay: ResMut<ExitDelay>,
     external_reply: Res<ExternalReply>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     if exit_delay.seconds.is_some() {
+        scoreboard.stop();  // Make sure game is stopped
         exit_delay.seconds = Some(exit_delay.seconds.unwrap() - time.delta_secs());
         if exit_delay.seconds.unwrap() <= 0.0 {
             handle_exit(external_reply, exit_delay);
@@ -706,11 +712,9 @@ fn clear_scoring_text(
     time: Res<Time>,
     mut timer: ResMut<ScoringHelpTimer>,
     mut query: Query<&mut Visibility>,
-    scoreboard: Res<Scoreboard>,
 ) {
     if timer.active {
-        if timer.entity.is_some() && time.elapsed_secs() > timer.start + timer.duration ||
-                !scoreboard.running {
+        if timer.entity.is_some() && time.elapsed_secs() > timer.start + timer.duration {
             if let Ok(mut visibility) = query.get_mut(timer.entity.unwrap()) {
                 *visibility = Visibility::Hidden;
             }
@@ -741,14 +745,13 @@ fn toggle_overhead_camera(
 fn update_countdown(
     mut commands: Commands,
     time: Res<Time>,
-    mut scoreboard: ResMut<Scoreboard>,
+    scoreboard: Res<Scoreboard>,
     mut countdown_board: ResMut<CountdownBoard>,
     mut exit_delay: ResMut<ExitDelay>,
 ) {
     if scoreboard.running && countdown_board.is_running() {
         countdown_board.reduce_countdown(time.delta());
         if !countdown_board.is_running() {
-            scoreboard.stop();
             commands.write_message(HelpMessage { help_type: HelpType::Center,
                 text: "Game Over\nOut of time".to_string() });
             // Wha Wha Wha them out
@@ -1837,6 +1840,68 @@ fn handle_new_toys(
         }
     }
 }
+fn setup_new_level(
+    mut messages: MessageReader<SetupLevel>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut game_level_res: ResMut<GameLevelResource>,
+    asset_server: Res<AssetServer>,
+    mut countdown_board: ResMut<CountdownBoard>,
+    mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
+    configuration: Res<Configuration>,
+    mut transform_grid: ResMut<TransformGrid>,
+    mut scoreboard: ResMut<Scoreboard>,
+){
+    for _event in messages.read() {
+        let game_level = configuration.get_game_level(scoreboard.level);
+        commands.write_message(ActivateGameMessage {});
+        commands.write_message(ColorMessage {
+            table_color: configuration.get_table_color(),
+            wall_color: configuration.get_wall_color(),
+            background_color: configuration.get_background_color(),
+            scoreboard_color: configuration.get_scoreboard_color(),
+        });
+        let game_level = game_level.unwrap();
+        game_level_res.set_game_level(game_level);
+        // Introduce the level
+        commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
+        commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
+        // Drop the first ball
+        commands.write_message(BallMessage {});
+
+        create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
+        create_blocks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_barriers(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
+        create_disks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_cones(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server, &mut transform_grid);
+        create_blacks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_bumpys(game_level, &mut commands, &asset_server, &mut transform_grid);
+        create_spikeys(game_level, &mut commands, &asset_server, &mut transform_grid);
+        create_targets(game_level, &mut commands, &mut meshes, &mut materials);
+        create_ghosts(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
+        create_lifesavers(game_level, &mut commands, &asset_server, &mut transform_grid);
+        create_cylinders(game_level, &mut commands, &asset_server, &mut transform_grid);
+
+        commands.write_message(NewToysMessage {});
+
+        scoreboard.set_balls_count(game_level.get_ball_count());
+        if game_level.seconds == None {
+            for mut visibility in clock_face_query.iter_mut() {
+                *visibility = Visibility::Hidden;
+            }
+        } else {
+            // Start the clock
+            countdown_board.start(Some(Duration::from_secs(game_level.seconds.unwrap() as u64)));
+            // And make it visible
+            for mut visibility in clock_face_query.iter_mut() {
+                *visibility = Visibility::Visible;
+            }
+        }
+    }
+}
+
 fn handle_new_level(
     mut messages: MessageReader<PlayLevel>,
     mut toy_drop: ResMut<ToyDrop>,
@@ -1844,19 +1909,21 @@ fn handle_new_level(
     mut old_balls: Query<Entity, With<BouncyBall>>,
     mut old_toys: Query<Entity, With<ToyType>>,
     mut old_barriers: Query<Entity, With<Barrier>>,
-    mut scoreboard: ResMut<Scoreboard>,
-    mut countdown_board: ResMut<CountdownBoard>,
+    mut exit_delay: ResMut<ExitDelay>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut game_level_res: ResMut<GameLevelResource>,
-    asset_server: Res<AssetServer>,
     fence_query: Query<Entity, With<Fence>>,
-    mut clock_face_query: Query<&mut Visibility, With<ClockBoardFace>>,
-    mut transform_grid: ResMut<TransformGrid>,
+    scoreboard: Res<Scoreboard>,
+    mut timer: ResMut<ScoringHelpTimer>,
+    mut center_query: Query<&mut Visibility, With<CenterHelp>>,
 ) {
     for _event in messages.read() {
-        // Remove anything waiting to drop
+        exit_delay.seconds = None;
+        timer.active = false;
+        for mut visibility in center_query.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+            // Remove anything waiting to drop
         toy_drop.clear();
         // Remove old balls, toys, and barriers
         for entity in old_balls.iter_mut() {
@@ -1891,50 +1958,7 @@ fn handle_new_level(
         if game_level.is_none() {
             return;
         }
-        commands.write_message(ActivateGameMessage {});
-        commands.write_message(ColorMessage {
-            table_color: configuration.get_table_color(),
-            wall_color: configuration.get_wall_color(),
-            background_color: configuration.get_background_color(),
-            scoreboard_color: configuration.get_scoreboard_color(),
-        });
-        let game_level = game_level.unwrap();
-        game_level_res.set_game_level(game_level);
-        // Introduce the level
-        commands.write_message(HelpMessage { help_type: HelpType::Next, text: game_level.help.clone() });
-        commands.write_message(SoundMessage { sound_type: SoundType::NewLevel });
-        // Drop the first ball
-        commands.write_message(BallMessage{});
-
-        create_fences(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
-        create_blocks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
-        create_barriers(game_level, &mut commands, &mut meshes, &mut materials, &configuration);
-        create_disks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
-        create_cones(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
-        create_dips(game_level, &mut commands, &mut meshes, &mut materials, &asset_server, &mut transform_grid);
-        create_blacks(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
-        create_bumpys(game_level, &mut commands, &asset_server, &mut transform_grid);
-        create_spikeys(game_level, &mut commands, &asset_server, &mut transform_grid);
-        create_targets(game_level, &mut commands, &mut meshes, &mut materials);
-        create_ghosts(game_level, &mut commands, &mut meshes, &mut materials, &mut transform_grid);
-        create_lifesavers(game_level, &mut commands, &asset_server, &mut transform_grid);
-        create_cylinders(game_level, &mut commands, &asset_server, &mut transform_grid);
-
-        commands.write_message(NewToysMessage{});
-
-        scoreboard.set_balls_count(game_level.get_ball_count());
-        if game_level.seconds == None {
-            for mut visibility in clock_face_query.iter_mut() {
-                *visibility = Visibility::Hidden;
-            }
-        } else {
-        // Start the clock
-            countdown_board.start(Some(Duration::from_secs(game_level.seconds.unwrap() as u64)));
-            // And make it visible
-            for mut visibility in clock_face_query.iter_mut() {
-                *visibility = Visibility::Visible;
-            }
-        }
+        commands.write_message(SetupLevel{});
     }
 }
 fn start_new_game(
@@ -1956,7 +1980,6 @@ fn start_next_level(
 ) {
     // Did we finish the last level?
     if scoreboard.next_level() {
-        scoreboard.stop();
         commands.write_message(HelpMessage { help_type: HelpType::Center,
             text: format!("Game over\nYou won {} points", scoreboard.total).to_string() });
             exit_delay.seconds = Some(7.0);
