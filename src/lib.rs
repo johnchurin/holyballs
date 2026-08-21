@@ -1978,6 +1978,7 @@ fn start_next_level(
     mut commands: Commands,
     mut exit_delay: ResMut<ExitDelay>,
 ) {
+    scoreboard.running = false;
     // Did we finish the last level?
     if scoreboard.next_level() {
         commands.write_message(HelpMessage { help_type: HelpType::Center,
@@ -1990,10 +1991,10 @@ fn start_next_level(
 
 }
 fn restart_same_level(
-    //        mut scoreboard: ResMut<Scoreboard>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,
 ) {
-    //    scoreboard.same_level();
+    scoreboard.running = false;
     commands.write_message(PlayLevel {});
 }
 fn drop_a_ball(

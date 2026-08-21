@@ -11,14 +11,14 @@
       "balls": 5,
       "blocks": 1,
       "fences": 15,
-      "help": "The magic fence will keep your ball on the table."
+      "help": "Use the mouse or arrow keys to move the ball\nThe magic fence will keep your ball on the table"
     },
     {
       "balls": 5,
       "blocks": 3,
       "disks": 1,
       "fences": 15,
-      "help": "More toys to push off the edge."
+      "help": "More toys to push off the edge"
     },
     {
       "seconds": 120,
@@ -26,7 +26,7 @@
       "blocks": 1,
       "disks": 1,
       "fences": 15,
-      "help": "Fewer balls available now\nand, this level is timed."
+      "help": "Fewer 'balls' available now\nand, this level is timed"
     },
     {
       "seconds": 120,
@@ -34,7 +34,7 @@
       "fences": 15,
       "barriers": 8,
       "blocks": 2,
-      "help": "Use the space bar to bounce the ball over the barrier"
+      "help": "Use the space bar to bounce the ball over the barrier\nThe more you press, the more it bounces"
     },
     {
       "seconds": 30,
@@ -75,5 +75,13 @@
       "barriers": 15,
       "disks": 2,
       "help": "More hiding places"
+    },
+    {
+      "seconds": 120,
+      "balls": 3,
+      "barriers": 15,
+      "bumpys": 2,
+      "disks": 2,
+      "help": "Make it through this level and you win the game"
     }
 ]}
