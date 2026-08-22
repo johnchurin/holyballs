@@ -1,43 +1,68 @@
 import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
 const button = document.getElementById("play");
+//button.disabled = true;
 const primaryLanguage = navigator.language;
 console.log("Primary language" + primaryLanguage);
-button.addEventListener("click", () => {
-    const spinner = document.getElementById("spinner");
-    spinner.style.display = "inline";
-    const container = document.getElementById("fullscreenContainer");
-    container.requestFullscreen().catch(err => {
-        console.error("Error attempting to enable fullscreen:", err);
+let initDone = false;
+$( document ).ready(function() {
+    $("#play").disabled = false;
+    console.log( "ready!" );
+    $("#play").click(function() {
+        const spinner = document.getElementById("spinner");
+        spinner.style.display = "inline";
+        const container = document.getElementById("fullscreenContainer");
+        container.requestFullscreen().catch(err => {
+            console.error("Error attempting to enable fullscreen:", err);
+        });
+        initWasm(startGame);
     });
-    initWasm(startGame);
+    const closeBtn = document.getElementById("closeBtn");
+    $("#closeBtn").click(function() {
+        end_play();
+        cleanup_after_play();
+        if (document.exitFullscreen) {
+            document.exitFullscreen().then(); // Modern standard
+        }
+        console.log("Exiting Game");
+    });
+    $("#game-level").change( (event) => {
+        fetchConfig(event.target.value);
+    });
+    $("#fullscreenContainer").on("fullscreenchange", fullscreenchangeHandler);
+    // initWasm(initMessage);
 });
-const closeBtn = document.getElementById("closeBtn");
-closeBtn.onclick = () => {
-    end_play();
-    cleanup_after_play();
-    if (document.exitFullscreen) {
-        document.exitFullscreen().then(); // Modern standard
-    }
-    console.log("Exiting Game");
-};
+//const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Function to resume browser audio context
+// function resumeAudio() {
+//    if (audioCtx.state === "suspended") {
+//         audioCtx.resume()
+//             .then(() => {
+//                 console.log("Playback resumed successfully!");
+//                 startGame();
+//             })
+//
+//             .catch(error => console.error("Context resume failed:", error))
+//        ;
+//    } else {
+//        startGame();
+//    }
+// }
+// function initMessage() {
+//     console.log("Initializing Bevy");
+// }
 fetchMenu();
 
-const container = document.getElementById("fullscreenContainer");
-container.addEventListener("fullscreenchange", fullscreenchangeHandler);
-const game_level = document.getElementById("game-level");
 let jsonConfig = "none";
-game_level.addEventListener("change", (event) => {
-    fetchConfig(event.target.value);
-});
-let initDone = false;
 // We only need to init once, but it must be after some user input so now is a good time.
 function initWasm(callback) {
     if (initDone) {
         callback();
     } else {
-        initDone = true;
         init()
             .then(() => {
+                initDone = true;
+                button.disabled = false;
                 callback();
             })
             .catch(error => {
@@ -52,7 +77,7 @@ function fetchMenu() {
     const url = "config/menu.json";
     fetch(url)
         .then(function(response) {
-            console.log(response.statusText);
+            console.log("load " + url + " Status: " + response.statusText);
             return response.json();
         })
         .then(function(json) {
@@ -85,7 +110,6 @@ function fetchConfig(filename)  {
         return json;
     })
     .then(function(json) {
-        console.log("Type: " + typeof json);
         jsonConfig = json;
     });
 }

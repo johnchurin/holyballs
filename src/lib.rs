@@ -5,7 +5,7 @@ pub mod config;
 
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use bevy::audio::Volume;
+use bevy::audio::{AudioPlugin, Volume};
 use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -123,6 +123,10 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             .set(AssetPlugin{
                 meta_check: AssetMetaCheck::Never,
                 ..default()
+            })
+            .set(AudioPlugin{
+                global_volume: Default::default(),
+                default_spatial_scale: Default::default(),
             })
         )
         // Initialize the Rapier physics engine
