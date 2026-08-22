@@ -39,13 +39,46 @@
       "balls": 3,
       "barriers": 2,
       "lifesavers": 2,
-      "help": "Put the ball in the lifesaver to earn bonus points."
+      "help": "Put the ball in the lifesavers and push them over\nthe edge to earn bonus points."
     },
     {
       "seconds": 60,
       "balls": 3,
-      "targets": 3,
-      "help": "Remember, if it lands on the table, you still have to push\nit off the edgeto get points."
+      "targets": 7,
+      "help": "Remember, if it lands on the table, you still have to push\nit off the edge to get points."
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "lifesavers": 3,
+      "dips": 3,
+      "blacks": 3,
+      "help": "Lots of bonus point opportunities"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "blocks": 2,
+      "cones": 2,
+      "disks": 2,
+      "help": "Zzzzz"
+    },
+    {
+      "seconds": 30,
+      "balls": 1,
+      "blocks": 2,
+      "cones": 2,
+      "disks": 2,
+      "help": "One ball, 30 seconds"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "barriers": 15,
+      "bumpys": 2,
+      "disks": 2,
+      "blocks": 2,
+      "help": "Make it through this level and you win the game"
     }
   ]
 }

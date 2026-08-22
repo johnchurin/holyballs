@@ -16,12 +16,12 @@
     },
     {
       "seconds": 100,
-      "balls": 4,
+      "balls": 3,
       "blocks": 4,
       "disks": 4,
       "ghosts": 3,
       "cylinders": 3,
-      "help": "Even more toys, and a bit more time"
+      "help": "Even more toys with a bit more time"
     },
     {
       "seconds": 60,
@@ -31,14 +31,64 @@
     },
     {
       "seconds": 60,
+      "cones": 4,
+      "blocks": 3,
+      "spikeys": 2,
+      "help": "Cones, blocks, and spikeys"
+    },
+    {
+      "seconds": 60,
       "balls": 3,
       "blocks": 2,
+      "bumpys": 2,
       "wind": [
         -1.5,
         0.0,
         1.5
       ],
       "help": "Strong wind from the north-east"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "blocks": 2,
+      "blacks": 4,
+      "help": "Don't forget to turn the black toys to white toys"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "blocks": 2,
+      "blacks": 4,
+      "barriers": 15,
+      "help": "A bit harder"
+    },
+    {
+      "seconds": 60,
+      "balls": 1,
+      "ghosts": 4,
+      "cones": 2,
+      "help": "Only one ball, make it count"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "ghosts": 2,
+      "cones": 2,
+      "blocks": 2,
+      "blacks": 4,
+      "barriers": 3,
+      "help": "Almost there"
+    },
+    {
+      "seconds": 60,
+      "balls": 3,
+      "cones": 2,
+      "blocks": 2,
+      "bumpys": 4,
+      "barriers": 3,
+      "help": "Final level of this game"
     }
+
   ]
 }
