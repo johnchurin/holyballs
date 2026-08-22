@@ -27,6 +27,7 @@ pub fn main() {
 unsafe extern "C" {
     fn game_ended();
     fn console_message(msg: &str);
+    fn play_sound(file: String);
 }
 // Callback from game
 fn reply_handler(message: ExternalMessage) {
@@ -36,6 +37,11 @@ fn reply_handler(message: ExternalMessage) {
         match message.action.as_str() {
             "game_ended" => {
                 game_ended();
+            }
+            "play_sound" => {
+                if message.payload.is_some() {
+                    play_sound(message.payload.unwrap());
+                }
             }
             _ => {
                 println!("Invalid reply message from game: {:?}", message.action);

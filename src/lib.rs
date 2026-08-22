@@ -5,7 +5,6 @@ pub mod config;
 
 // Suppress console output
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use bevy::audio::{AudioPlugin, Volume};
 use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -19,6 +18,7 @@ use bevy_rapier3d::rapier::prelude::CollisionEventFlags;
 use rand::RngExt;
 use bevy_fontmesh::{FontMeshPlugin, JustifyText, TextAnchor, TextMesh, TextMeshStyle};
 use bevy::asset::AssetMetaCheck;
+use bevy::audio::AudioPlugin;
 use crossfire::*;
 use crossfire::mpmc::Array;
 use crate::config::{Configuration, GameLevel};
@@ -124,10 +124,7 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
                 meta_check: AssetMetaCheck::Never,
                 ..default()
             })
-            .set(AudioPlugin{
-                global_volume: Default::default(),
-                default_spatial_scale: Default::default(),
-            })
+            .build().disable::<AudioPlugin>()
         )
         // Initialize the Rapier physics engine
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
@@ -140,7 +137,6 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
         .insert_resource(external_reply)
         .insert_resource(Scoreboard::new())
         .insert_resource(CountdownBoard::new())
-        .insert_resource(GlobalVolume::new(Volume::Linear(0.25)))
         .insert_resource(ScoringHelpTimer::new())
         .insert_resource(Configuration::new())
         .insert_resource(GameLevelResource::new())
@@ -663,9 +659,6 @@ fn check_external_channel(
                 for mut transform in q_camera.iter_mut() {
                     *transform = camera_position.next();
                 }
-
- //               scoreboard.next_level();
-                //    println!("Sending next level from start_new_game");
                 commands.write_message(PlayLevel {});
             }
             // End the game but don't exit the app
@@ -1012,48 +1005,47 @@ fn handle_impulse_message(
 
 fn handle_sound(
     mut messages: MessageReader<SoundMessage>,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
     scoreboard: Res<Scoreboard>,
+    external_reply: Res<ExternalReply>,
 ) {
     for event in messages.read() {
         if scoreboard.sound {
             match event.sound_type {
                 SoundType::Win => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/beep.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/beep.ogg"))
+                    });
                 }
                 SoundType::Lose => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/buzzer.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/buzzer.ogg"))
+                    });
                 }
                 SoundType::Bonus => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/tinkle.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/tinkle.ogg"))
+                    });
                 }
                 SoundType::GameOver => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/wha-wha.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/wha-wha.ogg"))
+                    });
                 }
                 SoundType::NewLevel => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/intro.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/intro.ogg"))
+                    });
                 }
                 SoundType::FinishLevel => {
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("audio/fanfare.ogg")),
-                        PlaybackSettings::ONCE,
-                    ));
+                    external_reply.reply(ExternalMessage{
+                        action: "play_sound".to_string(),
+                        payload: Some(String::from("assets/audio/fanfare.ogg"))
+                    });
                 }
             }
         }

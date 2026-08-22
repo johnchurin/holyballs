@@ -5,16 +5,25 @@ const primaryLanguage = navigator.language;
 console.log("Primary language" + primaryLanguage);
 let initDone = false;
 $( document ).ready(function() {
-    $("#play").disabled = false;
-    console.log( "ready!" );
+    $("#play").prop("disabled", true);
+    init()
+        .then(() => {
+            initDone = true;
+            $("#play").prop("disabled", false);
+        })
+        .catch(error => {
+            console.error("Failed to initialize WASM module:", error);
+        })
+    ;
     $("#play").click(function() {
+        $("#play").prop("disabled", true);
         const spinner = document.getElementById("spinner");
         spinner.style.display = "inline";
         const container = document.getElementById("fullscreenContainer");
         container.requestFullscreen().catch(err => {
             console.error("Error attempting to enable fullscreen:", err);
         });
-        initWasm(startGame);
+        startGame();
     });
     const closeBtn = document.getElementById("closeBtn");
     $("#closeBtn").click(function() {
@@ -29,49 +38,11 @@ $( document ).ready(function() {
         fetchConfig(event.target.value);
     });
     $("#fullscreenContainer").on("fullscreenchange", fullscreenchangeHandler);
-    // initWasm(initMessage);
+    fetchMenu();
 });
-//const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-// Function to resume browser audio context
-// function resumeAudio() {
-//    if (audioCtx.state === "suspended") {
-//         audioCtx.resume()
-//             .then(() => {
-//                 console.log("Playback resumed successfully!");
-//                 startGame();
-//             })
-//
-//             .catch(error => console.error("Context resume failed:", error))
-//        ;
-//    } else {
-//        startGame();
-//    }
-// }
-// function initMessage() {
-//     console.log("Initializing Bevy");
-// }
-fetchMenu();
 
 let jsonConfig = "none";
-// We only need to init once, but it must be after some user input so now is a good time.
-function initWasm(callback) {
-    if (initDone) {
-        callback();
-    } else {
-        init()
-            .then(() => {
-                initDone = true;
-                button.disabled = false;
-                callback();
-            })
-            .catch(error => {
-                console.error("Failed to initialize WASM module:", error);
-            })
-        ;
-    }
-}
-
 
 function fetchMenu() {
     const url = "config/menu.json";
@@ -134,7 +105,8 @@ function startGame() {
     const canvas = document.getElementById("game-canvas");
     canvas.addEventListener('contextmenu', (event) => {
         event.preventDefault();
-    });    canvas.focus();
+    });
+    canvas.focus();
     console.log("Focus set");
 }
 function cleanup_after_play() {
@@ -142,11 +114,10 @@ function cleanup_after_play() {
    const container = document.getElementById("fullscreenContainer");
     const spinner = document.getElementById("spinner");
     const playLabel = document.getElementById("playLabel");
-    const button = document.getElementById('play');
     spinner.style.display = "none";
     playLabel.style.display = "inline";
     container.style.display = "none";
-    button.disabled = false;
+    $("#play").prop("disabled", false);
     // if (container.exitFullscreen) {
     //     container.exitFullscreen().then(r => {}); // Modern standard
     // }
