@@ -72,6 +72,6 @@ tasks:
     desc: Deploy site folder to google
     dir: site
     cmds:
-      - firebase deploy --only hosting
+      - firebase deploy --only hosting:game
 
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Holy Balls Admin Console</title>
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <script type="importmap">
+        {
+          "imports": {
+            "firebase/app": "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js",
+            "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js",
+            "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js",
+            "jquery": "https://code.jquery.com/jquery-4.0.0.module.min.js",
+            "auth": "./js/auth.js"
+          }
+        }
+    </script>
+    <script type="module">
+        import { login, logout, setUsernameCallback } from "auth";
+        import $ from "jquery";
+        $(document).ready(function() {
+            $("#header-goes-here").load("header.html", function(responseText, textStatus, jqXHR) {
+                $('#login').on('click', login);
+                $('#logout').on('click', logout);
+                $('#title').text("Holy Balls Admin Console");
+                setUsernameCallback(updateUsername);
+            });
+        });
+
+        function updateUsername(name) {
+            $('#username').text(name);
+        }
+    </script>
+
+</head>
+<body>
+<div id="header-goes-here"></div>
+</body>
+</html>
