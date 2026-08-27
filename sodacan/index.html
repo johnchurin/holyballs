@@ -51,11 +51,13 @@
             $("#login").hide();
             $("#logout").show();
             $('#username').text(name).show();
+            $('.logged-in').show();
         }
         function loggedOut() {
             $("#login").show();
             $("#logout").hide();
             $('#username').hide();
+            $('.logged-in').hide();
             setupMenu().then();
         }
     </script>
@@ -140,7 +142,7 @@
             <div class="pane" id="play-pane" role="tabpanel">
                 <table id="scores" class="table table-sm">
                     <thead>
-                    <tr>
+                    <tr class="logged-in">
                         <th>&nbsp</th>
                         <th colspan="2" class="text-center">Scores</th>
                     </tr>
@@ -149,7 +151,7 @@
                         <th class="text-end">
                             Last
                         </th>
-                        <th class="text-end">
+                        <th class="text-end logged-in">
                             Highest
                         </th>
                     </tr>

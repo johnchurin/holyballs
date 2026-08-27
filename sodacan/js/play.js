@@ -70,9 +70,10 @@ export function updateScore(score) {
 
     const currentUser = auth.currentUser;
     if (!currentUser) {
-        console.error("You must be logged in to save scores");
+        displayScores(parts[0], parts[1]);
         return;
     }
+    // User is logged in so store the scores
     const docRef = doc(db, "users", currentUser.uid, "games", parts[0]);
     let highest;
     // Get current scores and update as appropriate
@@ -102,7 +103,7 @@ export function subscribeToScores() {
     const scoresRef = collection(db, "users/" + currentUser.uid + "/games");
     unsubscribe = onSnapshot(scoresRef, (snap) => {
         snap.docs.forEach((doc) => {
-            displayScores(doc);
+            displayScores(doc.id, doc.data().lastScore, doc.data().highestScore);
 //            console.log("Document ID:", doc.id, "Data:", doc.data());
         });
     }, (error) => {
@@ -111,25 +112,22 @@ export function subscribeToScores() {
 
 }
 // Table is already populated with the menu, we just add score data to the corresponding rows.
-export function displayScores(doc) {
-    console.log("Scores for", doc.id, "are", doc.data);
+export function displayScores(game, lastScore, highestScore) {
     // Iterate through the tbody rows and find the scores, if any, for the game
     let rows = $("#scores tbody tr");
     rows.each(function( index, row) {
         let key = $(this).attr('data-game')
-        if (key===doc.id) {
-            console.log("Got hit on", key);
+        if (key===game) {
             $(this).empty();
-            $(this).append(gameRow(doc.id));
-            $(this).append("<td class='text-end'>" + doc.data().lastScore + "</td>");
-            $(this).append("<td class='text-end'>" + doc.data().highestScore + "</td>");
+            $(this).append(gameRow(game));
+            $(this).append("<td class='text-end'>" + lastScore + "</td>");
+            if (highestScore) {
+                $(this).append("<td class='text-end'>" + highestScore + "</td>");
+            }
             $(this).on("click", function() {
                 $(".play").addClass("disabled-link");
-                // const spinner = document.getElementById("spinner");
-                // spinner.style.display = "inline";
                 startGame(key);
             });
-
             return;
         }
     });
