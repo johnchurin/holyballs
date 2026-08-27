@@ -88,7 +88,11 @@ export function updateScore(score) {
                 highestScore: highest
             }).then();
         } else {
-            console.log("No such document!");
+            console.log("Creating new document for this user/game");
+            setDoc(docRef, {
+                lastScore: parts[1],
+                highestScore: parts[1]
+            }).then();
         }
     });
 }

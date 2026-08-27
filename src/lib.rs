@@ -771,8 +771,8 @@ fn update_countdown(
     if scoreboard.running && countdown_board.is_running() {
         countdown_board.reduce_countdown(time.delta());
         if !countdown_board.is_running() {
-            // Zero out the score
-            scoreboard.reset();
+            // Stop the game
+            scoreboard.stop();
             commands.write_message(HelpMessage { help_type: HelpType::Center,
                 text: "Game Over\nOut of time".to_string() });
             // Wha Wha Wha them out
@@ -941,7 +941,7 @@ fn score_fallen_entities(
                     if scoreboard.balls == 0 {
                         if ball.live {
                             // Zero out the score
-                            scoreboard.reset();
+                            scoreboard.stop();
                             commands.write_message(HelpMessage { help_type: HelpType::Center,
                                 text: "Game Over\nOut of balls".to_string() });
                             // Wha Wha Wha them out

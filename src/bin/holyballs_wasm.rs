@@ -23,7 +23,7 @@ pub fn main() {
     start_bevy(external_consumer, external_reply);
 }
 
-#[wasm_bindgen(module = "/sodacan/js/export.js")]
+#[wasm_bindgen(module = "/site/js/export.js")]
 unsafe extern "C" {
     fn game_ended();
     fn latest_score(score: String);
