@@ -6,12 +6,12 @@ import {
     signOut,
     onAuthStateChanged
 } from "firebase/auth";
-import $ from "jquery";
 // Set up Google Auth Provider
 const provider = new GoogleAuthProvider();
-// Firebase configuration: This is specific but not secret
+// Firebase configuration: This key is specific but NOT secret
+const not_secret = "AIzaSyAPG10eyt_Wx8qZGEmXP7-q0j0W73W7EWQ";
 const firebaseConfig = {
-    apiKey: "AIzaSyAPG10eyt_Wx8qZGEmXP7-q0j0W73W7EWQ",
+    apiKey: not_secret,
     authDomain: "holyballs.games",
     projectId: "holyballs-2beff",
     storageBucket: "holyballs-2beff.firebasestorage.app",
@@ -19,8 +19,6 @@ const firebaseConfig = {
     appId: "1:826762095856:web:ba1a7faf95b8124ab36635"
 };
 
-export const primaryLanguage = navigator.language;
-// console.log("Primary language: " + primaryLanguage);
 let loggedInCallback;
 let loggedOutCallback;
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
