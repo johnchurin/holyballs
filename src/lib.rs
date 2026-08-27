@@ -510,7 +510,7 @@ struct Scoreboard {
 
 impl Scoreboard {
     fn new() -> Self {
-        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: false, starting_level: 0, total_levels: 0 }
+        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: true, starting_level: 0, total_levels: 0 }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
@@ -588,6 +588,7 @@ fn check_external_channel(
     //    time: Res<Time>,
     mut commands: Commands,
     external_consumer: Res<ExternalConsumer>,
+    external_reply: Res<ExternalReply>,
     mut scoreboard: ResMut<Scoreboard>,
     mut win_query: Query<&mut Window, With<PrimaryWindow>>,
     mut name_query: Query<&mut TextMesh, With<GameName>>,
@@ -662,8 +663,16 @@ fn check_external_channel(
                 commands.write_message(PlayLevel {});
             }
             // End the game but don't exit the app
+            // Note: there are several paths through the exit process but they all
+            // start by notifying the client first. For wasm, the browser can unilaterally end the game
+            // by sending this message. So, if this code wants to end the game, it only sends a game_ended
+            // msg to the client (javascript) which in turn sends this message back to us. We then
+            // return a score update to the client.
+            // that the
             "end_play" => {
                 scoreboard.stop();
+                let score = Some(format!("{}", scoreboard.total));
+                external_reply.reply(ExternalMessage{action: "update_score".to_string(), payload: score });
             }
             "game_name" => {
                 if message.payload.is_some() {
@@ -689,20 +698,24 @@ fn delayed_exit(
         scoreboard.stop();  // Make sure game is stopped
         exit_delay.seconds = Some(exit_delay.seconds.unwrap() - time.delta_secs());
         if exit_delay.seconds.unwrap() <= 0.0 {
-            handle_exit(external_reply, exit_delay);
+            exit_delay.seconds = None;
+            send_game_ended(external_reply);
         }
     }
 }
+fn send_game_ended(
+    external_reply: Res<ExternalReply>,
+) {
+    // Wasm we just tell js w're done. Engine stays running.
+    external_reply.reply(ExternalMessage{action: "game_ended".to_string(), payload: None });
+}
 fn handle_exit(
-//   mut commands: Commands,
    external_reply: Res<ExternalReply>,
     mut exit_delay: ResMut<ExitDelay>,
 )
 {
     exit_delay.seconds = None;
-    // Wasm we just tell js w're done. Engine stays running.
-    // Same for cli?
-    external_reply.reply(ExternalMessage{action: "game_ended".to_string(), payload: None});
+    send_game_ended(external_reply);
 }
 
 fn clear_scoring_text(
@@ -742,13 +755,15 @@ fn toggle_overhead_camera(
 fn update_countdown(
     mut commands: Commands,
     time: Res<Time>,
-    scoreboard: Res<Scoreboard>,
+    mut scoreboard: ResMut<Scoreboard>,
     mut countdown_board: ResMut<CountdownBoard>,
     mut exit_delay: ResMut<ExitDelay>,
 ) {
     if scoreboard.running && countdown_board.is_running() {
         countdown_board.reduce_countdown(time.delta());
         if !countdown_board.is_running() {
+            // Zero out the score
+            scoreboard.reset();
             commands.write_message(HelpMessage { help_type: HelpType::Center,
                 text: "Game Over\nOut of time".to_string() });
             // Wha Wha Wha them out
@@ -916,6 +931,8 @@ fn score_fallen_entities(
                     // If this is our last, live ball, then game over.
                     if scoreboard.balls == 0 {
                         if ball.live {
+                            // Zero out the score
+                            scoreboard.reset();
                             commands.write_message(HelpMessage { help_type: HelpType::Center,
                                 text: "Game Over\nOut of balls".to_string() });
                             // Wha Wha Wha them out
@@ -1984,8 +2001,8 @@ fn start_next_level(
         //    println!("Sending next level from start_next_Level");
         commands.write_message(PlayLevel {});
     }
-
 }
+
 fn restart_same_level(
     mut scoreboard: ResMut<Scoreboard>,
     mut commands: Commands,

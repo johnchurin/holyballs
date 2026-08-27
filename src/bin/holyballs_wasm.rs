@@ -23,9 +23,10 @@ pub fn main() {
     start_bevy(external_consumer, external_reply);
 }
 
-#[wasm_bindgen(module = "/site/js/export.js")]
+#[wasm_bindgen(module = "/sodacan/js/export.js")]
 unsafe extern "C" {
     fn game_ended();
+    fn latest_score(score: String);
     fn console_message(msg: &str);
     fn play_sound(file: String);
 }
@@ -37,6 +38,9 @@ fn reply_handler(message: ExternalMessage) {
         match message.action.as_str() {
             "game_ended" => {
                 game_ended();
+            }
+            "update_score" => {
+                latest_score(message.payload.unwrap());
             }
             "play_sound" => {
                 if message.payload.is_some() {
@@ -60,18 +64,11 @@ pub fn sound(onoff: String) {
     }
 }
 #[wasm_bindgen]
-pub fn load(json: String) {
+pub fn play(json: String) {
     let p = EXTERNAL_PRODUCER.get();
     if p.is_some() {
         let external_producer = p.unwrap();
         external_producer.send(ExternalMessage::new(String::from("load"), Some(json)));
-    }
-}
-#[wasm_bindgen]
-pub fn play() {
-    let p = EXTERNAL_PRODUCER.get();
-    if p.is_some() {
-        let external_producer = p.unwrap();
         external_producer.send(ExternalMessage::new(String::from("play"), None));
     }
 }
@@ -84,11 +81,3 @@ pub fn end_play() {
         external_producer.send(ExternalMessage::new(String::from("end_play"), None));
     }
 }
-// #[wasm_bindgen]
-// pub fn gamename(name:String) {
-//     let p = EXTERNAL_PRODUCER.get();
-//     if p.is_some() {
-//         let external_producer = p.unwrap();
-//        external_producer.send(ExternalMessage::new(String::from("game_name"), Some(name)));
-//    }
-// }

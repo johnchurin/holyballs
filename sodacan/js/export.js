@@ -1,3 +1,4 @@
+import {updateScore} from "play";
 export function console_message(msg) {
     console.log(msg);
 }
@@ -7,7 +8,9 @@ export function game_ended() {
         document.exitFullscreen().then();
     }
 }
-
+export function latest_score(score) {
+    updateScore(score);
+}
 export function play_sound(file) {
     const sound = new Audio(file);
     sound.play().then(r => {});

@@ -1,6 +1,6 @@
 import {doc, getFirestore, getDoc, setDoc} from "firebase/firestore";
 import {app, auth} from "auth";
-import init, { sound, load, play, end_play } from "../generated/holyballs_wasm.js";
+import init, { sound, play, end_play } from "../generated/holyballs_wasm.js";
 import $ from "jquery";
 const db = getFirestore(app);
 let init_done = false;
@@ -15,14 +15,12 @@ $( document ).ready(function() {
         })
     ;
     $("#closeBtn").on("click", function() {
-        end_play();
-        cleanup_after_play();
         if (document.exitFullscreen) {
             document.exitFullscreen().then(); // Modern standard
         }
         console.log("Exiting Game");
     });
-    $("#fullscreenContainer").on("fullscreenchange", fullscreenchangeHandler);
+    $(document).on("fullscreenchange", fullscreenchangeHandler);
 });
 export async function setupMenu() {
     let tbody = $("#scores tbody");
@@ -55,6 +53,9 @@ export async function setupMenu() {
             startGame(gameName);
         });
     }
+}
+export function updateScore(score) {
+    console.log("Score is ", score);
 }
 
 // Table is already populated with the menu, we just add score data to the corresponding rows.
@@ -91,16 +92,15 @@ export function startGame(gameName) {
     container.requestFullscreen().catch(err => {
         console.error("Error attempting to enable fullscreen:", err);
     });
-    const soundElement = document.getElementById("sound");
-    let soundParam;
-    if (soundElement.checked) {
-        soundParam = "on";
-    } else {
-        soundParam = "off";
-    }
-    sound(soundParam);
+    // const soundElement = document.getElementById("sound");
+    // let soundParam;
+    // if (soundElement.checked) {
+    //     soundParam = "on";
+    // } else {
+    //     soundParam = "off";
+    // }
+    // sound(soundParam);
 //    gamename(gameName);
-    play();
     container.style.display = "block";
     const canvas = document.getElementById("game-canvas");
     canvas.addEventListener('contextmenu', (event) => {
@@ -108,27 +108,38 @@ export function startGame(gameName) {
     });
     canvas.focus();
     console.log("Focus set");
+    fetchConfigAndPlay(gameName + ".hb.json");
+}
+function fetchConfigAndPlay(filename)  {
+    const url = "config/" + filename;
+    console.log("load config file: " + url);
+    fetch(url)
+        .then(function(response) {
+            return response.text();
+        })
+        .then(function(json) {
+            return json;
+        })
+        .then(function(json) {
+            play(json);
+        });
 }
 function cleanup_after_play() {
     console.log("cleanup_after_play");
     const container = document.getElementById("fullscreenContainer");
-    const spinner = document.getElementById("spinner");
-    const playLabel = document.getElementById("playLabel");
+    // const spinner = document.getElementById("spinner");
+    // const playLabel = document.getElementById("playLabel");
 //    spinner.style.display = "none";
 //    playLabel.style.display = "inline";
     container.style.display = "none";
     $(".play").removeClass("disabled-link");
-    // if (container.exitFullscreen) {
-    //     container.exitFullscreen().then(r => {}); // Modern standard
-    // }
-
 }
 export function fullscreenchangeHandler(event) {
-    console.log("Closing: ", event.target.id);
     if (document.fullscreenElement) {
         console.log(`entered fullscreen mode.`);
     } else {
-        console.log("Leaving fullscreen mode.");
+        console.log("Leaving fullscreen mode. Send end_play to engine");
+        event.stopPropagation();
         end_play();
         cleanup_after_play();
     }

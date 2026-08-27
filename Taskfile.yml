@@ -46,7 +46,7 @@ tasks:
     desc: Build and run local server on port 5000
     cmds:
       - cargo build --target wasm32-unknown-unknown --profile dev
-      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/debug/holyballs_wasm.wasm --target web
+      - wasm-bindgen --out-dir sodacan/generated target/wasm32-unknown-unknown/debug/holyballs_wasm.wasm --target web
       - powershell -Command "Start-Process chrome.exe ""http://localhost:5000"""
     silent: false
 
@@ -65,7 +65,7 @@ tasks:
     desc: Build wasm for release and publication
     cmds:
       - cargo build --target wasm32-unknown-unknown --profile release
-      - wasm-bindgen --out-dir site/generated target/wasm32-unknown-unknown/release/holyballs_wasm.wasm --target web
+      - wasm-bindgen --out-dir sodacan/generated target/wasm32-unknown-unknown/release/holyballs_wasm.wasm --target web
     silent: false
 
   wasm-publish:
