@@ -1,4 +1,4 @@
-import {doc, getFirestore, getDoc, setDoc} from "firebase/firestore";
+import {doc, getFirestore, onSnapshot, getDoc, setDoc, collection, updateDoc} from "firebase/firestore";
 import {app, auth} from "auth";
 import init, { sound, play, end_play } from "../generated/holyballs_wasm.js";
 import $ from "jquery";
@@ -22,7 +22,22 @@ $( document ).ready(function() {
     });
     $(document).on("fullscreenchange", fullscreenchangeHandler);
 });
+let unsubscribe;
+function gameRow(game) {
+    return '<td><a href="#" title="Play this game" class="text-decoration-none play"' +
+    '">' +
+    '<img src="images/play.png" alt="Play">&nbsp' +
+    game +
+    '</a>' +
+    '</td>';
+
+}
 export async function setupMenu() {
+    if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = undefined;
+    }
+
     let tbody = $("#scores tbody");
     // Clear previous entries
     tbody.empty();
@@ -31,15 +46,10 @@ export async function setupMenu() {
     if (gameSnap.exists()) {
         $.each(gameSnap.data().games, function(index, game) {
             tbody.append(
-                '<tr>' +
-                '<td>' +
-                '<a href="#" title="Play this game" class="text-decoration-none play" data-game="' +
+                '<tr data-game="' +
                 game +
                 '">' +
-                '<img src="images/play.png" alt="Play">&nbsp' +
-                game +
-                '</a>' +
-                '</td>' +
+                gameRow(game) +
                 '</tr>');
         });
         if (!init_done) {
@@ -49,17 +59,39 @@ export async function setupMenu() {
             $(".play").addClass("disabled-link");
             // const spinner = document.getElementById("spinner");
             // spinner.style.display = "inline";
-            let gameName = $(this).attr('data-game');
+            let gameName = $(this).parent().parent().attr('data-game');
             startGame(gameName);
         });
     }
 }
 export function updateScore(score) {
-    console.log("Score is ", score);
-}
+    let parts = score.split(",")
+    console.log("Score for game:", parts[0], "is", parts[1]);
 
-// Table is already populated with the menu, we just add score data to the corresponding rows.
-export function getUserScores() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        console.error("You must be logged in to save scores");
+        return;
+    }
+    const docRef = doc(db, "users", currentUser.uid, "games", parts[0]);
+    let highest;
+    // Get current scores and update as appropriate
+    getDoc(docRef).then((snap)=> {
+        if (snap.exists()) {
+            highest = snap.data().highestScore;
+            if (Number(parts[1]) > Number(highest)) {
+                highest = parts[1];
+            }
+            updateDoc(docRef, {
+                lastScore: parts[1],
+                highestScore: highest
+            }).then();
+        } else {
+            console.log("No such document!");
+        }
+    });
+}
+export function subscribeToScores() {
     console.log( "in getUserScores" );
     const currentUser = auth.currentUser;
 
@@ -67,21 +99,39 @@ export function getUserScores() {
         console.error("You must be logged in to fetch data!");
         return;
     }
+    const scoresRef = collection(db, "users/" + currentUser.uid + "/games");
+    unsubscribe = onSnapshot(scoresRef, (snap) => {
+        snap.docs.forEach((doc) => {
+            displayScores(doc);
+//            console.log("Document ID:", doc.id, "Data:", doc.data());
+        });
+    }, (error) => {
+        console.error("Error listening to document: ", error);
+    });
+
+}
+// Table is already populated with the menu, we just add score data to the corresponding rows.
+export function displayScores(doc) {
+    console.log("Scores for", doc.id, "are", doc.data);
     // Iterate through the tbody rows and find the scores, if any, for the game
     let rows = $("#scores tbody tr");
     rows.each(function( index, row) {
-        let key = $(this).text().trim();
-        console.log("Field: ", "." + key + ".");
-        const scoresRef = doc(db, "users", currentUser.uid, "games", key);
-        getDoc(scoresRef).then((snap)=> {
-            if (snap.exists()) {
-                console.log("Document data:", snap.data());
-                $(this).append("<td class='text-end'>" + snap.data().lastScore + "</td>");
-                $(this).append("<td class='text-end'>" + snap.data().highestScore + "</td>");
-            } else {
-                console.log("No such document!");
-            }
-        });
+        let key = $(this).attr('data-game')
+        if (key===doc.id) {
+            console.log("Got hit on", key);
+            $(this).empty();
+            $(this).append(gameRow(doc.id));
+            $(this).append("<td class='text-end'>" + doc.data().lastScore + "</td>");
+            $(this).append("<td class='text-end'>" + doc.data().highestScore + "</td>");
+            $(this).on("click", function() {
+                $(".play").addClass("disabled-link");
+                // const spinner = document.getElementById("spinner");
+                // spinner.style.display = "inline";
+                startGame(key);
+            });
+
+            return;
+        }
     });
 }
 
@@ -108,9 +158,9 @@ export function startGame(gameName) {
     });
     canvas.focus();
     console.log("Focus set");
-    fetchConfigAndPlay(gameName + ".hb.json");
+    fetchConfigAndPlay(gameName + ".hb.json", gameName);
 }
-function fetchConfigAndPlay(filename)  {
+function fetchConfigAndPlay(filename, gameName)  {
     const url = "config/" + filename;
     console.log("load config file: " + url);
     fetch(url)
@@ -121,7 +171,7 @@ function fetchConfigAndPlay(filename)  {
             return json;
         })
         .then(function(json) {
-            play(json);
+            play(json, gameName);
         });
 }
 function cleanup_after_play() {

@@ -23,7 +23,7 @@
     <script type="module">
         import $ from "jquery";
         import { login, logout, setCallbacks } from "auth";
-        import { setupMenu, getUserScores, fullscreenchangeHandler} from "play";
+        import { setupMenu, subscribeToScores, fullscreenchangeHandler} from "play";
         $(document).ready(function() {
             $('#login').on('click', login);
             $('#logout').on('click', logout);
@@ -46,7 +46,7 @@
 
         function loggedIn(name) {
             setupMenu().then(() => {
-                getUserScores();
+                subscribeToScores();
             });
             $("#login").hide();
             $("#logout").show();

@@ -506,11 +506,13 @@ struct Scoreboard {
     sound: bool,
     starting_level: i32,
     total_levels: i32,
+    game_name: Option<String>,
 }
 
 impl Scoreboard {
     fn new() -> Self {
-        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: true, starting_level: 0, total_levels: 0 }
+        Self { running: false, score: 0, level: 0, total: 0, toys: 0, balls: 0, sound: true, starting_level: 0, total_levels: 0,
+            game_name: None }
     }
     fn hit(&mut self, incr: i32) {
         self.score += incr;
@@ -537,6 +539,9 @@ impl Scoreboard {
     fn stop(&mut self) {
         println!("stopping game");
         self.running = false;
+    }
+    fn set_game_name(&mut self, game_name: String) {
+        self.game_name = Some(game_name);
     }
     fn start(&mut self) {
         self.running = true;
@@ -656,6 +661,7 @@ fn check_external_channel(
             "play" => {
                 scoreboard.reset();
                 scoreboard.set_starting_level(1);
+                scoreboard.set_game_name(message.payload.unwrap());
                 camera_position.reset();
                 for mut transform in q_camera.iter_mut() {
                     *transform = camera_position.next();
@@ -671,8 +677,11 @@ fn check_external_channel(
             // that the
             "end_play" => {
                 scoreboard.stop();
-                let score = Some(format!("{}", scoreboard.total));
-                external_reply.reply(ExternalMessage{action: "update_score".to_string(), payload: score });
+                if scoreboard.game_name.is_some() {
+                    let game_name = scoreboard.game_name.clone();
+                    let score = Some(format!("{},{}", game_name.unwrap(), scoreboard.total));
+                    external_reply.reply(ExternalMessage{action: "update_score".to_string(), payload: score });
+                }
             }
             "game_name" => {
                 if message.payload.is_some() {

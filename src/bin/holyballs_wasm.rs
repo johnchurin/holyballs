@@ -64,12 +64,12 @@ pub fn sound(onoff: String) {
     }
 }
 #[wasm_bindgen]
-pub fn play(json: String) {
+pub fn play(json: String, game_name: String) {
     let p = EXTERNAL_PRODUCER.get();
     if p.is_some() {
         let external_producer = p.unwrap();
         external_producer.send(ExternalMessage::new(String::from("load"), Some(json)));
-        external_producer.send(ExternalMessage::new(String::from("play"), None));
+        external_producer.send(ExternalMessage::new(String::from("play"), Some(game_name)));
     }
 }
 
