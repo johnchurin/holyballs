@@ -150,8 +150,8 @@ pub fn start_bevy(external_consumer: ExternalConsumer, external_reply: ExternalR
             update_scoreboard.run_if(resource_changed::<Scoreboard>),
             update_countdown_face.run_if(resource_changed::<CountdownBoard>),
             toggle_overhead_camera.run_if(input_just_pressed(KeyCode::KeyO)),
-            drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
-            drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
+            // drop_a_ball.run_if(input_just_pressed(KeyCode::Enter)),
+            // drop_a_ball.run_if(input_just_pressed(KeyCode::NumpadEnter)),
             mouse_down.run_if(input_just_pressed(MouseButton::Left)),
             mouse_up.run_if(input_just_released(MouseButton::Left)),
             handle_exit.run_if(input_just_pressed(KeyCode::KeyX)),
@@ -704,9 +704,9 @@ fn delayed_exit(
     mut scoreboard: ResMut<Scoreboard>,
 ) {
     if exit_delay.seconds.is_some() {
-        scoreboard.stop();  // Make sure game is stopped
         exit_delay.seconds = Some(exit_delay.seconds.unwrap() - time.delta_secs());
         if exit_delay.seconds.unwrap() <= 0.0 {
+            scoreboard.stop();  // Make sure game is stopped
             exit_delay.seconds = None;
             send_game_ended(external_reply);
         }

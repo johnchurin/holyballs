@@ -3,6 +3,10 @@ name = "holyballs"
 version = "0.9.0"
 edition = "2024"
 
+[features]
+# Create a feature that enables the dependency
+#audio = ["rodio"]
+
 [dependencies]
 bevy = {version = "0.19.1"}
 bevy_rapier3d = { version = "0.36.0" }
@@ -12,7 +16,7 @@ crossfire = "3.1.19"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 #log = "0.4.33"
-
+#rodio = {version = "0.22.2", features = ["audio"]}
 [dev-dependencies]
 bevy = { version = "0.19.1", features = ["debug"] }
 

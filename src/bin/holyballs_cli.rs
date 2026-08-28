@@ -9,7 +9,7 @@ use std::io::{BufReader};
 use std::sync::OnceLock;
 use crossfire::mpmc::Array;
 use holyballs::config::{MenuItem, Menus};
-
+//use rodio::{Decoder, OutputStream, Sink};
 const CONFIG_DIR: &str = "config";
 static TX: OnceLock<MAsyncTx<Array<ExternalMessage>>> = OnceLock::new();
 
@@ -38,9 +38,17 @@ fn reply_handler(message: ExternalMessage)
 
         match message.action.as_str() {
             "game_ended" => {
-                let message = ExternalMessage { action: "exit".to_string(), payload: None };
+                let message = ExternalMessage { action: "end_play".to_string(), payload: None };
 
                 tx.try_send(message).expect("No tx channel");
+            }
+            "play_sound" => {
+                if message.payload.is_some() {
+                    play_sound(message.payload.unwrap());
+                }
+            }
+            "update_score" => {
+                println!("Game over, score is {:?}", message.payload);
             }
             _ => {
                 println!("Invalid reply message from game: {:?}", message.action);
@@ -49,6 +57,20 @@ fn reply_handler(message: ExternalMessage)
     }
 }
 
+fn play_sound(filename: String) {
+    println!("Play sound: {}", filename);
+    // let sink_handle = rodio::DeviceSinkBuilder::open_default_sink()
+    //     .expect("open default audio stream");
+    //
+    // // Load a sound from a file, using a path relative to Cargo.toml
+    // let file = BufReader::new(File::open(Path::new(&filename)));
+    // // Note that the playback stops when the player is dropped
+    // let player = rodio::play(&sink_handle.mixer(), file).unwrap();
+    //
+    // // The sound plays in a separate audio thread,
+    // // so we need to keep the main thread alive while it's playing.
+    // std::thread::sleep(std::time::Duration::from_secs(5));
+}
 // Bevy must be run from main thread so command loop is spawned.
 fn command_loop(external_producer: ExternalProducer) {
     let m = get_menu();
@@ -62,7 +84,7 @@ fn command_loop(external_producer: ExternalProducer) {
         println!("\t{}, {}, file: {}", menu.name, menu.display, menu.file);
     }
     println!();
-    let mut game_loaded = false;
+    let mut game_name: Option<String> = None;
     loop {
         print!("holyballs> ");
         let _ = io::stdout().flush();
@@ -87,14 +109,6 @@ fn command_loop(external_producer: ExternalProducer) {
             external_producer.send(ExternalMessage::new(String::from("fullscreen"), mode));
             continue;
         }
-        if cmd == "play" {
-            if game_loaded {
-                external_producer.send(ExternalMessage::new(String::from("play"), None));
-            } else {
-                println!("Load a game first");
-            }
-            continue;
-        }
 
         if cmd == "sound" {
             let payload = if args.len() == 2 {Some(String::from(args[1]))} else {None};
@@ -102,12 +116,13 @@ fn command_loop(external_producer: ExternalProducer) {
             continue;
         }
 
-        if cmd == "load" {
+        if cmd == "play" {
             let name = if args.len() == 2 {
                 String::from(args[1])
             } else {
                 String::from("beginner")
             };
+            game_name = Some(name.clone());
             let mut m: Option<&MenuItem> = None;
             for menu in menus {
                 if menu.name == name {
@@ -125,7 +140,7 @@ fn command_loop(external_producer: ExternalProducer) {
                     continue;
                 }
                 external_producer.send(ExternalMessage{action: "load".to_string(), payload: Some(json.unwrap())});
-                game_loaded = true;
+                external_producer.send(ExternalMessage::new(String::from("play"), game_name.clone()));
             } else {
                 println!("{} not found in menu", name);
             }

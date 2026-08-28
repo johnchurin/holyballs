@@ -47,18 +47,19 @@
         function loggedIn(name) {
             setupMenu().then(() => {
                 subscribeToScores();
+                $("#login").hide();
+                $("#logout").show();
+                $('#username').text(name).show();
+                $('.logged-in').show();
             });
-            $("#login").hide();
-            $("#logout").show();
-            $('#username').text(name).show();
-            $('.logged-in').show();
         }
         function loggedOut() {
-            $("#login").show();
-            $("#logout").hide();
-            $('#username').hide();
-            $('.logged-in').hide();
-            setupMenu().then();
+            setupMenu().then(() => {
+                $("#login").show();
+                $("#logout").hide();
+                $('#username').hide();
+                $('.logged-in').hide();
+            });
         }
     </script>
     <style>
