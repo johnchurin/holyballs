@@ -14,6 +14,7 @@
             "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js",
             "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js",
             "jquery": "https://code.jquery.com/jquery-4.0.0.module.min.js",
+            "admin": "./js/admin.js",
             "auth": "./js/auth.js",
             "play": "./js/play.js",
             "export": "./js/export.js"
@@ -24,6 +25,12 @@
         import $ from "jquery";
         import { login, logout, setCallbacks } from "auth";
         import { setupMenu, subscribeToScores, fullscreenchangeHandler} from "play";
+        import { ifAdmin } from "admin";
+
+        // Test if it works
+        $(document).ready(function() {
+            console.log("jQuery and Bootstrap module loaded successfully!");
+        });
         $(document).ready(function() {
             $('#login').on('click', login);
             $('#logout').on('click', logout);
@@ -37,14 +44,17 @@
             });
             // Select the default pane
             $('.default-pane').click();
-            // $("#game-level").change( (event) => {
-            //     fetchConfig(event.target.value);
-            // });
             $("#fullscreenContainer").on("fullscreenchange", fullscreenchangeHandler);
-            // fetchMenu();
         });
 
+        function showAdmin() {
+            $(".admin").show();
+        }
+        function hideAdmin() {
+            $(".admin").hide();
+        }
         function loggedIn(name) {
+            hideAdmin();
             setupMenu().then(() => {
                 subscribeToScores();
                 $("#login").hide();
@@ -52,6 +62,7 @@
                 $('#username').text(name).show();
                 $('.logged-in').show();
             });
+            ifAdmin(showAdmin);
         }
         function loggedOut() {
             setupMenu().then(() => {
@@ -60,6 +71,7 @@
                 $('#username').hide();
                 $('.logged-in').hide();
             });
+            hideAdmin();
         }
     </script>
     <style>
@@ -136,10 +148,62 @@
                 <li><a href="#" class="nav-link text-dark pane-control default-pane" data-target="#play-pane">Play</a></li>
                 <li><hr></li>
                 <li><a href="#" class="nav-link text-dark pane-control" data-target="#settings-pane">Settings</a></li>
+                <li><a href="#" class="nav-link text-dark pane-control admin" data-target="#admin-pane">Admin</a></li>
                 <li><a href="#" class="nav-link text-dark pane-control" data-target="#about-pane">About</a></li>
             </ul>
         </nav>
         <main class="col-xl-7 col-lg-7 col-md-6 col-sm-4">
+            <div class="pane" id="admin-pane" role="tabpanel">
+                <h3>Game Administration</h3>
+                <ul class="nav nav-underline" id="admin-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="admin-menus-tab" data-bs-toggle="tab" data-bs-target="#admin-menus"
+                                type="button" role="tab" aria-controls="home" aria-selected="true">Menus</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="admin-games-tab" data-bs-toggle="tab" data-bs-target="#admin-games"
+                                type="button" role="tab" aria-controls="home" aria-selected="false">Games</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="admin-content">
+                    <div class="tab-pane fade show active" id="admin-menus" role="tabpanel" aria-labelledby="admin-menus-tab">
+                        <div class="container p-2">
+                            <h5>Menus list</h5>
+                            <button type="button" class="btn btn-link" data-bs-toggle="modal" data-bs-target="#menu-modal">
+                                Launch static backdrop modal
+                            </button>
+                            <div>
+                                <span>en-US</span>
+                                <a href="#" class="btn btn-link" title="Edit this menu" data-bs-toggle="modal" data-bs-target="#menu-modal">
+                                    <img src="images/edit.png">
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Modal -->
+                        <div class="modal fade" id="menu-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h1 class="modal-title fs-5" id="menu-modal-label">Edit Menu</h1>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        ...
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-primary">Update</button>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade show" id="admin-games" role="tabpanel" aria-labelledby="admin-games-tab">
+                        Games list
+                    </div>
+                </div>
+            </div>
             <div class="pane" id="play-pane" role="tabpanel">
                 <table id="scores" class="table table-sm">
                     <thead>
@@ -158,13 +222,13 @@
             </div>
             <div class="pane" id="settings-pane" role="tabpanel">Language, mouse sensitivity, sound</div>
             <div class="pane" id="how-to-pane" role="tabpanel">
-                <h2>How to play the Holy Balls Game</h2>
-                <h3>Objective</h3>
-                <p class="fs-5">Use a ball to knock various <i>toys</i> onto the floor for points. However, if the
+                <h2>How to play the Game</h2>
+                <h4>Objective</h4>
+                <p class="fs-5">Use a ball to knock <i>toys</i> onto the floor for points. If the
                     <i>ball</i> falls on the floor, you lose points. When all the toys have fallen to the floor,
-                    the game moves to the next level. There are about ten levels per game. Eack level provides
-                    a different challenge.</p>
-                <h3>How it works</h3>
+                    you get bonus points and the game moves to the next level. There are about ten levels per game.
+                    Each level provides a different challenge.</p>
+                <h4>How it works</h4>
                 <p class="fs-5">In this game, you don't control the ball directly but rather apply invisible
                     forces using your mouse to make the ball move.
                     Gravity, friction, and momentum take care of the rest.</p>
@@ -175,7 +239,7 @@
                     Wind will be introduced on some games. Harder games are timed. And the countdown can sometimes be short.</p>
                 <p class="fs-5">Bonus points can be had for certain maneuvers on a toy. Some toys have to be dislodged from the walls
                     by hitting them with the ball.</p>
-                <h3 id="how-to-play">How to Play</h3>
+                <h4 id="how-to-play">How to Play</h4>
                 <p class="fs-5">Click on one of the games on the "Play" pane. This is a full screen game.
                     The game ends when you hit the escape key or X key on the keyboard or click the close button.
                     The game also ends when a timed level times out. If you lose your balls on a level, the game ends.
@@ -184,7 +248,7 @@
                 <p class="fs-5">When toys are dropped onto the table, some may fall off of the table without your assistance.
                     You will get credit for them. On the other hand, when a <b>ball</b> falls off the table,
                     it will cost you points.</p>
-                <h3>Scoring</h3>
+                <h4>Scoring</h4>
                 <p class="fs-5">Each toy that hits the ground adds points. Some toys, such as the black disk, subtract points unless
                     you've turned it white. If you get all of the toys on the ground before time runs out, you get bonus points for completing
                     a level.</p>
@@ -197,7 +261,7 @@
                 <p class="fs-5">The <b>Play</b> pane shows the latest score for each game. If you login,
                     I'll keep your scores in the cloud for subsequent sessions and also keep track of your highest score for each level.
                     </p>
-                <h3>User actions while in the game</h3>
+                <h4>User actions while in the game</h4>
                 <p class="fs-5">Press the X key or click the Close button (upper right corner) to exit the game.</p>
                 <p class="fs-5">Push the ball around by holding down the left mouse button and moving the mouse.</p>
                 <p class="fs-5">You can also use the Arrow keys or 4, 8, 6, 2 on the keypad to push the ball around.</p>
@@ -205,28 +269,28 @@
                     the ball goes.</p>
                 <p class="fs-5">In some cases, a toy could be hiding behind a barrier. Use the O key (for "overhead") if
                     you need a quick look at the table from the top down.</p>
-                <h3>Cheat Codes while in the game</h3>
+                <h4>Cheat Codes while in the game</h4>
                 <p class="fs-5">Press the N key to go to the next level. If the next level is timed, the timer starts right away.</p>
                 <p class="fs-5">Press the R key to replay the same level.</p>
                 <p class="fs-5">If a ball does fall off the table, you might be able to recover it by using the space bar and
                     mouse to bounce it back up as long as the ball doesn't reach the floor.</p>
             </div>
             <div class="pane" id="about-pane" role="tabpanel">
-                <h3>Hardware Requirements</h3>
+                <h2>Hardware Requirements</h2>
                 <p class="fs-5">Unlike many 3d games that require a beefy GPU, the Holy Balls game uses relatively simple toy patterns
                     like blocks, cones, and cylinders which demands less of the GPU. This approach allows the game
                     to run on modest (but modern) hardware such as laptops. A modern browser is also required.
                     Does not work on Android or iPhone, yet.
                 </p>
-                <h3>Contact</h3>
+                <h2>Contact</h2>
                 <p class="fs-5">Send email to <a href="mailto:support@sodacan.io">support@sodacan.io</a></p>
                 <h3>Found a bug? Have a comment or question?</h3>
                 <p class="fs-5">Feel free to file an issue on <a target="_blank" href="https://github.com/johnchurin/holyballs/issues">Github</a>.
                 Or, send an email to <a href="mailto:support@sodacan.io">support@sodacan.io</a> </p>
-                <h3 id="about">About</h3>
+                <h2 id="about">About</h2>
                 <p class="fs-5">I'm happily retired. Just doing this for fun. No commercial interest. No ads. Just the game.
                 </p>
-                <h3>License</h3>
+                <h2>License</h2>
                 <p class="fs-5">
                     <a href="https://opensource.org/license/agpl-3-0" target="_blank">
                         <img src="https://www.gnu.org.cach3.com/graphics/agplv3-155x51.png">
@@ -237,5 +301,6 @@
         </main>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 </body>
 </html>

@@ -23,10 +23,10 @@ $( document ).ready(function() {
     $(document).on("fullscreenchange", fullscreenchangeHandler);
 });
 let unsubscribe;
-function gameColumn(game) {
+function gameColumn(entry) {
     return '<td><a href="#" title="Play this game" class="text-decoration-none play">' +
     '<img src="images/play.png" alt="Play">&nbsp' +
-    game +
+    entry.display +
     '</a></td>';
 }
 export async function setupMenu() {
@@ -42,12 +42,14 @@ export async function setupMenu() {
     const gamesRef = doc(db, "menus", navigator.language);
     const gameSnap = await getDoc(gamesRef);
     if (gameSnap.exists()) {
-        $.each(gameSnap.data().games, function(index, game) {
+        $.each(gameSnap.data().entries, function(index, entry) {
             tbody.append(
                 '<tr data-game="' +
-                game +
+                entry.name +
+                '" data-file="' +
+                entry.file +
                 '">' +
-                gameColumn(game) +
+                gameColumn(entry) +
                 '<td class="text-end">-</td>' +
                 '<td class="text-end logged-in">-</td>' +
                 '</tr>');
@@ -58,7 +60,8 @@ export async function setupMenu() {
         $(".play").on("click", function() {
             $(".play").addClass("disabled-link");
             let gameName = $(this).parent().parent().attr('data-game');
-            startGame(gameName);
+            let file = $(this).parent().parent().attr('data-file');
+            startGame(gameName, file);
         });
     }
 }
@@ -128,7 +131,7 @@ export function displayScores(game, lastScore, highestScore) {
     });
 }
 
-export function startGame(gameName) {
+export function startGame(gameName, file) {
     $(".play").addClass("disabled-link");
     console.log("In startGame: ", gameName);
     const container = document.getElementById("fullscreenContainer");
@@ -151,10 +154,10 @@ export function startGame(gameName) {
     });
     canvas.focus();
     console.log("Focus set");
-    fetchConfigAndPlay(gameName + ".hb.json", gameName);
+    fetchConfigAndPlay(gameName, file);
 }
-function fetchConfigAndPlay(filename, gameName)  {
-    const url = "config/" + filename;
+function fetchConfigAndPlay(gameName, file){
+    const url = "config/" + file;
     console.log("load config file: " + url);
     fetch(url)
         .then(function(response) {
