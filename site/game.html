@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Holyballs by sodacan.io</title>
+    <title>sodacan.io Game Update</title>
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico" sizes="any">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <script type="importmap">
         {
@@ -19,8 +20,23 @@
           }
         }
     </script>
-
     <style>
+        .color-picker-wrapper {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+//            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .color-picker-wrapper:hover {
+            transform: scale(1.10);
+            border-color: #cbd5e1;
+        }
         .grab {
             cursor: grabbing;
         }
@@ -65,7 +81,18 @@
             <li class="breadcrumb-item active gamename" aria-current="page"></li>
         </ol>
     </nav>
-
+    <div class="align-middle">
+        <form>
+            <div class="align-middle">
+                <label for="scoreboardPicker">Scoreboard color:</label>
+                <input class="color-picker-wrapper" type="color" id="scoreboardPicker" name="scoreboardPicker" value="#ff0000">
+                <label for="wallPicker">Wall color:</label>
+                <input class="color-picker-wrapper" type="color" id="wallPicker" name="wallPicker" value="#ff0000">
+                <label for="tablePicker">Table color:</label>
+                <input class="color-picker-wrapper" type="color" id="tablePicker" name="tablePicker" value="#ff0000">
+            </div>
+        </form>
+    </div>
     <table class="table align-middle">
         <thead class="table-light">
         <tr style="height: 52px;">
@@ -196,7 +223,8 @@
             let $copy = $level_proto.clone(true);
             $copy.find("[data-field='summary']").text(summarize(level));
             if (level.help) {
-                $copy.find("[data-field='help']").text(level.help);
+//                console.log("Help:", level.help);
+                $copy.find("[data-field='help']").html(level.help.replaceAll("\n","&#9166;"));
             }
             $copy.find("[data-field='level']").text(levelNo);
             $copy.removeClass("prototype");
