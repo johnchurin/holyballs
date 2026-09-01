@@ -39,6 +39,9 @@
                 let targetPane = $(this).attr('data-target');
                 $(this).addClass("fw-bold");
                 $(targetPane).show();
+                let paneName = targetPane.replace("#", "").replace("-pane","").trim();
+                const currentState = window.history.state || {};
+                history.replaceState(currentState, "x", "/index.html?pane=" + paneName);
             });
             // Select the default pane
             const queryString = window.location.search;
@@ -157,8 +160,8 @@
             <a class="navbar-brand fw-bold mb-3" href="#">Holy Balls Game</a>
 
             <ul class="nav nav-pills flex-column mb-auto">
-                <li><a href="#" class="nav-link text-dark pane-control" data-target="#how-to-play-pane">How to Play</a></li>
-                <li><a href="#" class="nav-link text-dark pane-control default-pane" data-target="#play-pane">Play</a></li>
+                <li><a href="#" class="nav-link text-dark pane-control default-pane" data-target="#how-to-play-pane">How to Play</a></li>
+                <li><a href="#" class="nav-link text-dark pane-control" data-target="#play-pane">Play</a></li>
                 <li><hr></li>
                 <li><a href="#" class="nav-link text-dark pane-control" data-target="#settings-pane">Settings</a></li>
                 <li><a href="#" class="nav-link text-dark pane-control admin" data-target="#admin-pane">Admin</a></li>
