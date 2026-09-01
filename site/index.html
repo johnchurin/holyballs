@@ -29,9 +29,6 @@
 
         // Test if it works
         $(document).ready(function() {
-            console.log("jQuery and Bootstrap module loaded successfully!");
-        });
-        $(document).ready(function() {
             $('#login').on('click', login);
             $('#logout').on('click', logout);
             setCallbacks(loggedIn, loggedOut);
@@ -144,8 +141,8 @@
             <a class="navbar-brand fw-bold mb-3" href="#">Holy Balls Game</a>
 
             <ul class="nav nav-pills flex-column mb-auto">
-                <li><a href="#" class="nav-link text-dark pane-control" data-target="#how-to-pane">How to Play</a></li>
-                <li><a href="#" class="nav-link text-dark pane-control default-pane" data-target="#play-pane">Play</a></li>
+                <li><a href="#" class="nav-link text-dark pane-control default-pane" data-target="#how-to-pane">How to Play</a></li>
+                <li><a href="#" class="nav-link text-dark pane-control" data-target="#play-pane">Play</a></li>
                 <li><hr></li>
                 <li><a href="#" class="nav-link text-dark pane-control" data-target="#settings-pane">Settings</a></li>
                 <li><a href="#" class="nav-link text-dark pane-control admin" data-target="#admin-pane">Admin</a></li>

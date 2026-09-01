@@ -7,7 +7,7 @@
   "barrier_color": "#FFD166",
   "levels": [
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "blocks": 3,
       "disks": 3,
@@ -15,7 +15,7 @@
       "help": "More toys, less time"
     },
     {
-      "seconds": 100,
+      "seconds": 120,
       "balls": 3,
       "blocks": 4,
       "disks": 4,
@@ -24,20 +24,20 @@
       "help": "Even more toys with a bit more time"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "cones": 4,
       "blocks": 3,
       "help": "Cones can be tricky sometimes"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "cones": 4,
       "blocks": 3,
       "spikeys": 2,
       "help": "Cones, blocks, and spikeys"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "blocks": 2,
       "bumpys": 2,
@@ -49,14 +49,14 @@
       "help": "Strong wind from the north-east"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "blocks": 2,
       "blacks": 4,
       "help": "Don't forget to turn the black toys to white toys"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "blocks": 2,
       "blacks": 4,
@@ -64,14 +64,14 @@
       "help": "A bit harder"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 1,
       "ghosts": 4,
       "cones": 2,
       "help": "Only one ball, make it count"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "ghosts": 2,
       "cones": 2,
@@ -81,7 +81,7 @@
       "help": "Almost there"
     },
     {
-      "seconds": 60,
+      "seconds": 90,
       "balls": 3,
       "cones": 2,
       "blocks": 2,
@@ -89,6 +89,5 @@
       "barriers": 3,
       "help": "Final level of this game"
     }
-
   ]
 }
