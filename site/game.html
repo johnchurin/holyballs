@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Holyballs by sodacan.io</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <script type="importmap">
+        {
+          "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js",
+                "admin": "./js/admin.js",
+                "auth": "./js/auth.js",
+                "jquery": "https://code.jquery.com/jquery-4.0.0.module.min.js",
+                "bootstrap": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js",
+                "sortable": "./js/Sortable.min.js"
+          }
+        }
+    </script>
+
+    <style>
+        .grab {
+            cursor: grabbing;
+        }
+        tr {
+            height: 52px;
+            font-size: large;
+        }
+    </style>
+</head>
+<body>
+<div class="container container-fluid p-3">
+    <div class="row">
+        <div class="navbar sticky-top bg-primary flex-md-nowrap p-0">
+            <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="#">
+                <img src="images/small-sodacan.png" alt="Sodacam logo">
+                &nbsp;Sodacan.io
+            </a>
+            <ul class="nav justify-content-end pe-2">
+                <li class="nav-item pb-2">
+                    <a id="user-account" href="#" title="User Account"  class="icon-link" aria-label="User Account">
+                        <div class="text-white small" id="username"></div>
+                    </a>
+                </li>
+                <li class="nav-item pe-2">
+                    <a id="login" href="#" title="Login"  class="icon-link" aria-label="Login">
+                        <span class="text-white small">Login</span>
+                        <img src="images/login.png" alt="Login">
+                    </a>
+                </li>
+                <li class="nav-item pe-2">
+                    <a id="logout" href="#" title="Logout"  class="icon-link" aria-label="Logout">
+                        <img src="images/logout.png" alt="Logout">
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="index.html?pane=admin">Home</a></li>
+            <li class="breadcrumb-item"><a href="menu.html">Games</a></li>
+            <li class="breadcrumb-item active gamename" aria-current="page"></li>
+        </ol>
+    </nav>
+
+    <table class="table align-middle">
+        <thead class="table-light">
+        <tr style="height: 52px;">
+            <th>≡</th>
+            <th>Level</th>
+            <th>Summary</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody id="levels">
+        <tr class="d-none prototype">
+            <td data-field="grab" class="grab" aria-hidden="true">≡</td>
+            <td data-field="level"></td>
+            <td><span data-field="summary"></span><br/><span data-field="help"></span></td>
+            <td>
+                <a data-field="edit" href="#" class="btn btn-link" title="Edit this level" data-bs-toggle="offcanvas" data-bs-target="#levelPanel">
+                    <img src="images/edit.png" alt="Edit">
+                </a>
+                <a href="#" class="btn btn-link" title="Delete this game" data-bs-toggle="modal" data-bs-target="#delete-level-modal">
+                    <img src="images/delete.png" alt="Delete">
+                </a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+<button class="btn btn-outline-secondary m-3 float-end" data-bs-toggle="offcanvas" data-bs-target="#levelPanel" aria-controls="levelPanel">
+    <i class="bi bi-sliders me-1"></i> Filters
+</button>
+</div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="levelPanel" aria-labelledby="levelPanelLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="levelPanelLabel">Game Level</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <label class="form-label small fw-bold">Status</label>
+        <select class="form-select mb-3"><option>Any</option><option>Active</option><option>Archived</option></select>
+        <label class="form-label small fw-bold">Date range</label>
+        <input type="date" class="form-control mb-3" aria-label="From date">
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="f1" checked><label class="form-check-label" for="f1">Include drafts</label></div>
+        <div class="form-check mb-4"><input class="form-check-input" type="checkbox" id="f2"><label class="form-check-label" for="f2">Only mine</label></div>
+        <button class="btn btn-primary w-100">Apply filters</button>
+    </div>
+</div>
+<script type="module">
+    import $ from "jquery";
+    import "bootstrap";
+    import "sortable";
+    import { login, logout, setCallbacks } from "auth";
+    import { ifAdmin } from "admin";
+
+    let $level_proto;
+
+    let gameData;
+
+    $(document).ready(function() {
+        $('#login').on('click', login);
+        $('#logout').on('click', logout);
+        setCallbacks(loggedIn, loggedOut);
+        $level_proto = $("#levels").find(".prototype").clone(true);
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const gamename = urlParams.get('game');
+        $(".gamename").text(gamename);
+        fetch("./config/" + gamename + ".hb.json")
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                gameData = data;
+                console.log("Fetched gameData", gameData.name);
+                load_levels_table();
+            });
+    });
+
+    function loggedIn(name) {
+        $("#login").hide();
+        $("#logout").show();
+        $('#username').text(name).show();
+        $('.logged-in').show();
+    }
+    function loggedOut() {
+        $("#login").show();
+        $("#logout").hide();
+        $('#username').hide();
+        $('.logged-in').hide();
+    }
+
+    function summarize(level) {
+        let summary = "";
+        if (level.balls) {
+            if (summary.length > 0) {
+                summary += ", ";
+            }
+            summary += level.balls + " balls";
+        }
+        if (level.blocks) {
+            if (summary.length > 0) {
+                summary += ", ";
+            }
+            summary += level.blocks + " blocks";
+        }
+        if (level.disks) {
+            if (summary.length > 0) {
+                summary += ", ";
+            }
+            summary += level.disks + " disks";
+        }
+        if (level.fences) {
+            if (summary.length > 0) {
+                summary += ", ";
+            }
+            summary += level.fences + " fences";
+        }
+        return summary;
+    }
+    function seq_changed(event) {
+        console.log('Old index:', event.oldIndex);
+        console.log('New index:', event.newIndex);
+    }
+    function load_levels_table() {
+        $("#levels").empty();
+        let levelNo = 0;
+        gameData.levels.forEach((level, index) => {
+//            console.log($(this));
+            levelNo += 1;
+            let $copy = $level_proto.clone(true);
+            $copy.find("[data-field='summary']").text(summarize(level));
+            if (level.help) {
+                $copy.find("[data-field='help']").text(level.help);
+            }
+            $copy.find("[data-field='level']").text(levelNo);
+            $copy.removeClass("prototype");
+            $copy.removeClass("d-none");
+            $("#levels").append($copy);
+        });
+        new Sortable(levels, {
+            handle: '.grab',
+            animation: 150,
+            onEnd: seq_changed,
+        });
+    }
+    function unload_levels_table() {
+        $("#levels").empty();
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Holyballs by sodacan.io</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <script type="importmap">
+        {
+          "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js",
+                "jquery": "https://code.jquery.com/jquery-4.0.0.module.min.js",
+                "bootstrap": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js",
+                "sortable": "./js/Sortable.min.js",
+                "admin": "./js/admin.js",
+                "auth": "./js/auth.js"
+          }
+        }
+    </script>
+
+    <style>
+        .grab {
+            cursor: grabbing;
+        }
+        tr {
+            height: 52px;
+            font-size: large;
+        }
+    </style>
+</head>
+<body>
+<div class="container p-3">
+    <div class="row">
+        <div class="navbar sticky-top bg-primary flex-md-nowrap p-0">
+            <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="#">
+                <img src="images/small-sodacan.png" alt="Sodacam logo">
+                &nbsp;Sodacan.io
+            </a>
+            <ul class="nav justify-content-end pe-2">
+                <li class="nav-item pb-2">
+                    <a id="user-account" href="#" title="User Account"  class="icon-link" aria-label="User Account">
+                        <div class="text-white small" id="username"></div>
+                    </a>
+                </li>
+                <li class="nav-item pe-2">
+                    <a id="login" href="#" title="Login"  class="icon-link" aria-label="Login">
+                        <span class="text-white small">Login</span>
+                        <img src="images/login.png" alt="Login">
+                    </a>
+                </li>
+                <li class="nav-item pe-2">
+                    <a id="logout" href="#" title="Logout"  class="icon-link" aria-label="Logout">
+                        <img src="images/logout.png" alt="Logout">
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="container p-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="index.html?pane=admin">Home</a></li>
+            <li class="breadcrumb-item active"  aria-current="page">Games</li>
+        </ol>
+    </nav>
+    <button class="btn btn-primary">
+        <img src="images/add.png" alt="add">
+        Add Game
+    </button>
+    <table class="table align-middle">
+        <thead class="table-light">
+        <tr style="height: 52px;">
+            <th>≡</th>
+            <th>Name</th>
+            <th>Display</th>
+            <th>Game File</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody id="games">
+        <tr class="d-none prototype">
+            <td class="grab" aria-hidden="true">≡</td>
+            <td data-field="name"></td>
+            <td data-field="display"></td>
+            <td data-field="file"></td>
+            <td>
+                <a href="#" class="btn btn-link edit-game" title="Edit this game">
+                    <img src="images/edit.png" alt="Edit">
+                </a>
+                <a href="#" class="btn btn-link" title="Export this game" data-bs-toggle="modal" data-bs-target="#game-modal">
+                    <img src="images/file_export.png" alt="Export">
+                </a>
+                <a href="#" class="btn btn-link" title="Delete this game" data-bs-toggle="modal" data-bs-target="#game-modal">
+                    <img src="images/delete.png" alt="Delete">
+                </a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+<script type="module">
+    import { login, logout, setCallbacks } from "auth";
+    import { ifAdmin } from "admin";
+    import $ from "jquery";
+    import "bootstrap";
+    import "sortable";
+    let $game_proto;
+
+    $(document).ready(function() {
+        $('#login').on('click', login);
+        $('#logout').on('click', logout);
+        setCallbacks(loggedIn, loggedOut);
+        $game_proto = $("#games").find(".prototype").clone(true);
+//        console.log("Prototype:", $game_proto.html());
+
+        load_menu_table();
+    });
+    function loggedIn(name) {
+        $("#login").hide();
+        $("#logout").show();
+        $('#username').text(name).show();
+        $('.logged-in').show();
+    }
+    function loggedOut() {
+        $("#login").show();
+        $("#logout").hide();
+        $('#username').hide();
+        $('.logged-in').hide();
+    }
+    function seq_changed(event) {
+        console.log('Old index:', event.oldIndex);
+        console.log('New index:', event.newIndex);
+        // console.log('tbody:');
+        // $("#menus").each(function( index, row){
+        //     console.log($(this).text());
+        // });
+    }
+    let menu_data;
+    function load_menu_table() {
+        fetch("./config/menu.json")
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                menu_data = data;
+                $("#games").empty();
+                $(menu_data.entries).each( function() {
+                    let $copy = $game_proto.clone(true);
+                    let row = this;
+                    $copy.find("[data-field]").each(function() {
+                        // console.log("Field:", $(this).attr("data-field"));
+                        let $field = $(this).attr("data-field");
+                        // Get the value from the table
+//                console.log("Name:", $field, "Value:", row[$field]);
+                        $(this).text(row[$field]);
+                    });
+                    $copy.find('.edit-game').attr("href", "game.html?game=" + row.name);
+                    $copy.removeClass("prototype");
+                    $copy.removeClass("d-none");
+                    $("#games").append($copy);
+//                    console.log("Game:", $copy.html());
+                });
+                new Sortable(games, {
+                    handle: '.grab',
+                    animation: 150,
+                    onEnd: seq_changed,
+                });
+            });
+
+    }
+</script>
+</body>
+</html>
+
