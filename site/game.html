@@ -83,13 +83,31 @@
     </nav>
     <div class="align-middle">
         <form>
-            <div class="align-middle">
+            <div class="row g-3 p-3">
+                <div class="col-auto">
+                    <label for="gameName" class="">Name</label>
+                    <input type="text" size="10" class="form-control" id="gameName">
+                </div>
+                <div class="col-auto">
+                    <label for="gameDescr" class="">Description</label>
+                    <input type="text" size="40" class="form-control" id="gameDescr">
+                </div>
+                <div class="col-auto">
+                    <label for="pace" class="">Toy Drop Rate (ms)</label>
+                    <input type="number" class="form-control" id="pace">
+                </div>
+            </div>
+            <div class="align-middle p-3">
                 <label for="scoreboardPicker">Scoreboard color:</label>
                 <input class="color-picker-wrapper" type="color" id="scoreboardPicker" name="scoreboardPicker" value="#ff0000">
                 <label for="wallPicker">Wall color:</label>
-                <input class="color-picker-wrapper" type="color" id="wallPicker" name="wallPicker" value="#ff0000">
+                <input class="color-picker-wrapper" type="color" id="wallPicker" name="wallPicker" value="#F7F7FF">
                 <label for="tablePicker">Table color:</label>
-                <input class="color-picker-wrapper" type="color" id="tablePicker" name="tablePicker" value="#ff0000">
+                <input class="color-picker-wrapper" type="color" id="tablePicker" name="tablePicker" value="#00F5FF">
+                <label for="tablePicker">Fence color:</label>
+                <input class="color-picker-wrapper" type="color" id="fencePicker" name="fencePicker" value="#7C4DFF">
+                <label for="tablePicker">Barrier color:</label>
+                <input class="color-picker-wrapper" type="color" id="barrierPicker" name="barrierPicker" value="#FF2DAA">
             </div>
         </form>
     </div>
@@ -97,7 +115,8 @@
         <thead class="table-light">
         <tr style="height: 52px;">
             <th>≡</th>
-            <th>Level</th>
+            <th>Orig<br/>Level</th>
+            <th>New<br/>Level</th>
             <th>Summary</th>
             <th></th>
         </tr>
@@ -106,9 +125,10 @@
         <tr class="d-none prototype">
             <td data-field="grab" class="grab" aria-hidden="true">≡</td>
             <td data-field="level"></td>
+            <td data-field="newLevel"></td>
             <td><span data-field="summary"></span><br/><span data-field="help"></span></td>
             <td>
-                <a data-field="edit" href="#" class="btn btn-link" title="Edit this level" data-bs-toggle="offcanvas" data-bs-target="#levelPanel">
+                <a data-field="edit" href="#levelPanel" class="btn btn-link" title="Edit this level" data-bs-toggle="offcanvas" aria-label="Close">
                     <img src="images/edit.png" alt="Edit">
                 </a>
                 <a href="#" class="btn btn-link" title="Delete this game" data-bs-toggle="modal" data-bs-target="#delete-level-modal">
@@ -148,6 +168,7 @@
     let $level_proto;
 
     let gameData;
+    let originalGameData;
 
     $(document).ready(function() {
         $('#login').on('click', login);
@@ -163,6 +184,7 @@
                 return response.json();
             })
             .then(function(data) {
+                originalGameData = structuredClone(data);
                 gameData = data;
                 console.log("Fetched gameData", gameData.name);
                 load_levels_table();
@@ -213,10 +235,28 @@
     function seq_changed(event) {
         console.log('Old index:', event.oldIndex);
         console.log('New index:', event.newIndex);
+        let [old]  = gameData.levels.splice(event.oldIndex, 1);
+        gameData.levels.splice(event.newIndex, 0, old);
+        // for (const level of gameData.levels) {
+        //     console.log("Revised levels:", summarize(level));
+        // }
+        // Renumber the newLevel column
+        let newLevel = 0;
+        $("#levels tr").each(function(index, level) {
+            newLevel += 1;
+//            console.log("Level:", newLevel, ", index:", index, ":", level.html);
+            $(level).find("[data-field='newLevel']").text(index+1);
+        });
+//        console.log("Levels:", newLevel);
     }
     function load_levels_table() {
         $("#levels").empty();
         let levelNo = 0;
+        $("#scoreboardPicker").val(gameData.scoreboard_color);
+        $("#wallPicker").val(gameData.wall_color);
+        $("#tablePicker").val(gameData.table_color);
+        $("#fencePicker").val(gameData.fence_color);
+        $("#barrierPicker").val(gameData.barrier_color);
         gameData.levels.forEach((level, index) => {
 //            console.log($(this));
             levelNo += 1;
@@ -227,6 +267,7 @@
                 $copy.find("[data-field='help']").html(level.help.replaceAll("\n","&#9166;"));
             }
             $copy.find("[data-field='level']").text(levelNo);
+            $copy.find("[data-field='newLevel']").text(levelNo);
             $copy.removeClass("prototype");
             $copy.removeClass("d-none");
             $("#levels").append($copy);
