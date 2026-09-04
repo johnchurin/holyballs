@@ -81,12 +81,13 @@
             <li class="breadcrumb-item active gamename" aria-current="page"></li>
         </ol>
     </nav>
+    <button class="btn btn-primary" id="downloadBtn">Download</button>
     <div class="align-middle">
         <form>
             <div class="row g-3 p-3">
                 <div class="col-auto">
                     <label for="gameName" class="">Name</label>
-                    <input type="text" size="10" class="form-control" id="gameName">
+                    <input type="text" size="15" disabled class="form-control" id="gameName">
                 </div>
                 <div class="col-auto">
                     <label for="gameDescr" class="">Description</label>
@@ -94,20 +95,20 @@
                 </div>
                 <div class="col-auto">
                     <label for="pace" class="">Toy Drop Rate (ms)</label>
-                    <input type="number" class="form-control" id="pace">
+                    <input id="pace" type="range" class="form-range" step="100" min="100" max="5000">
                 </div>
             </div>
             <div class="align-middle p-3">
                 <label for="scoreboardPicker">Scoreboard color:</label>
-                <input class="color-picker-wrapper" type="color" id="scoreboardPicker" name="scoreboardPicker" value="#ff0000">
+                <input class="color-picker-wrapper color-edit" data-name="scoreboard_color" type="color" id="scoreboardPicker" name="scoreboardPicker" value="#ff0000">
                 <label for="wallPicker">Wall color:</label>
-                <input class="color-picker-wrapper" type="color" id="wallPicker" name="wallPicker" value="#F7F7FF">
+                <input class="color-picker-wrapper color-edit" data-name="wall_color" type="color" id="wallPicker" name="wallPicker" value="#F7F7FF">
                 <label for="tablePicker">Table color:</label>
-                <input class="color-picker-wrapper" type="color" id="tablePicker" name="tablePicker" value="#00F5FF">
+                <input class="color-picker-wrapper color-edit" data-name="table_color" type="color" id="tablePicker" name="tablePicker" value="#00F5FF">
                 <label for="tablePicker">Fence color:</label>
-                <input class="color-picker-wrapper" type="color" id="fencePicker" name="fencePicker" value="#7C4DFF">
+                <input class="color-picker-wrapper color-edit" data-name="fence_color" type="color" id="fencePicker" name="fencePicker" value="#7C4DFF">
                 <label for="tablePicker">Barrier color:</label>
-                <input class="color-picker-wrapper" type="color" id="barrierPicker" name="barrierPicker" value="#FF2DAA">
+                <input class="color-picker-wrapper color-edit" data-name="barrier_color" type="color" id="barrierPicker" name="barrierPicker" value="#FF2DAA">
             </div>
         </form>
     </div>
@@ -128,7 +129,7 @@
             <td data-field="newLevel"></td>
             <td><span data-field="summary"></span><br/><span data-field="help"></span></td>
             <td>
-                <a data-field="edit" href="#levelPanel" class="btn btn-link" title="Edit this level" data-bs-toggle="offcanvas" aria-label="Close">
+                <a data-field="edit" href="#" class="btn btn-link" title="Edit this level" aria-label="Edit Level">
                     <img src="images/edit.png" alt="Edit">
                 </a>
                 <a href="#" class="btn btn-link" title="Delete this game" data-bs-toggle="modal" data-bs-target="#delete-level-modal">
@@ -138,24 +139,73 @@
         </tr>
         </tbody>
     </table>
-<button class="btn btn-outline-secondary m-3 float-end" data-bs-toggle="offcanvas" data-bs-target="#levelPanel" aria-controls="levelPanel">
-    <i class="bi bi-sliders me-1"></i> Filters
-</button>
 </div>
 
 <div class="offcanvas offcanvas-end" tabindex="-1" id="levelPanel" aria-labelledby="levelPanelLabel">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="levelPanelLabel">Game Level</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <button type="button" class="btn-close" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body">
-        <label class="form-label small fw-bold">Status</label>
-        <select class="form-select mb-3"><option>Any</option><option>Active</option><option>Archived</option></select>
-        <label class="form-label small fw-bold">Date range</label>
-        <input type="date" class="form-control mb-3" aria-label="From date">
-        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="f1" checked><label class="form-check-label" for="f1">Include drafts</label></div>
-        <div class="form-check mb-4"><input class="form-check-input" type="checkbox" id="f2"><label class="form-check-label" for="f2">Only mine</label></div>
-        <button class="btn btn-primary w-100">Apply filters</button>
+    <div class="offcanvas-body level-update">
+        <label class="form-label small fw-bold" data-name="Balls" for="editballs"></label>
+            <input id="editballs" type="range" class="form-range level-edit"  data-level-field="balls" min="1" max="20">
+        <label class="form-label small fw-bold" data-name="Blacks" for="editblacks"></label>
+            <input id="editblacks" type="range" class="form-range level-edit"  data-level-field="blacks" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Blocks"  for="editblocks"></label>
+            <input id="editblocks" type="range" class="form-range level-edit" data-level-field="blocks" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Bumpies" for="editbumpys"></label>
+            <input id="editbumpys" type="range" class="form-range level-edit"  data-level-field="bumpys" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Cones" for="editcones"></label>
+            <input id="editcones" type="range" class="form-range level-edit"  data-level-field="cones" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Cylinders" for="editcylinders"></label>
+            <input id="editcylinders" type="range" class="form-range level-edit"  data-level-field="cylinders" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Dips" for="editdips"></label>
+            <input id="editdips" type="range" class="form-range level-edit"  data-level-field="dips" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Disks" for="editdisks"></label>
+            <input id="editdisks" type="range" class="form-range level-edit"  data-level-field="disks" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="GHosts" for="editghosts"></label>
+            <input id="editghosts" type="range" class="form-range level-edit"  data-level-field="ghosts" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Lifesavers" for="editlifesavers"></label>
+            <input id="editlifesavers" type="range" class="form-range level-edit"  data-level-field="lifesavers" min="0" max="20">
+        <label class="form-label small fw-bold" data-name="Spikeys" for="editspikeys"></label>
+            <input id="editspikeys" type="range" class="form-range level-edit"  data-level-field="spikeys" min="0" max="20">
+
+        <div class="form-check mb-2">
+            <label class="form-label small fw-bold">Targets</label>
+            <div class="row">
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="target1" checked>
+                    <label class="form-check-label" for="target1">Disk on Scoreboard</label>
+                </div>
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="target2" checked>
+                    <label class="form-check-label" for="target2">Square on Scoreboard</label>
+                </div>
+            </div>
+        </div>
+        <div class="form-check mb-2">
+            <label class="form-label small fw-bold">Fences</label>
+            <div class="row">
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="fenceback" checked>
+                    <label class="form-check-label" for="fenceback">Back</label>
+                </div>
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="fencefront" checked>
+                    <label class="form-check-label" for="fencefront">Front</label>
+                </div>
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="fenceleft" checked>
+                    <label class="form-check-label" for="fenceleft">Left</label>
+                </div>
+                <div class="col">
+                    <input class="form-check-input" type="checkbox" id="fenceright" checked>
+                    <label class="form-check-label" for="fenceright">Right</label>
+                </div>
+            </div>
+        </div>
+
+        <button id="doneEditing" class="btn btn-primary">Done Editing Level</button>
     </div>
 </div>
 <script type="module">
@@ -166,8 +216,9 @@
     import { ifAdmin } from "admin";
 
     let $level_proto;
-
+    let gameName;
     let gameData;
+    let levelEditData;
     let originalGameData;
 
     $(document).ready(function() {
@@ -177,9 +228,9 @@
         $level_proto = $("#levels").find(".prototype").clone(true);
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
-        const gamename = urlParams.get('game');
-        $(".gamename").text(gamename);
-        fetch("./config/" + gamename + ".hb.json")
+        gameName = urlParams.get('game');
+        $(".gamename").text(gameName);
+        fetch("./config/" + gameName + ".hb.json")
             .then(function(response) {
                 return response.json();
             })
@@ -188,7 +239,48 @@
                 gameData = data;
                 console.log("Fetched gameData", gameData.name);
                 load_levels_table();
+                load_game_details();
             });
+
+        $(".color-edit").on('change', function() {
+            let name = $(this).attr("data-name");
+            gameData[name] = $(this).val();
+        });
+
+        // Update label for this input with count
+        $(".level-edit").on('change', function() {
+            let $label = $('label[for="' + $(this).attr('id') + '"]');
+            let name = $label.attr("data-name");
+            $label.text(name + " [" + $(this).val() +"]");
+//            console.log($(this).val());
+        });
+        $("#pace").on('change', function() {
+            let $label = $('label[for="' + $(this).attr('id') + '"]');
+            let pace = $(this).val();
+            $label.text("Pace " + pace +"ms");
+            // Update gameData
+            gameData.pace = pace;
+//            console.log($(this).val());
+        });
+        $("#gameDescr").on('change', function() {
+            let descr = $(this).val();
+            gameData.name = descr;
+        });
+        $("#doneEditing").on("click", function() {
+            $(".offcanvas").removeClass("show");
+            $(".offcanvas").trigger('hide.bs.offcanvas');
+        });
+        $("#downloadBtn").on("click", function() {
+            const myData = new Blob([JSON.stringify(gameData, null, 2)], { type: 'application/json' });
+            const downloadUrl = URL.createObjectURL(myData);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = gameName + '.hb1.json';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(downloadUrl);
+        });
     });
 
     function loggedIn(name) {
@@ -206,29 +298,53 @@
 
     function summarize(level) {
         let summary = "";
-        if (level.balls) {
+        if (level.balls && level.balls > 0) {
             if (summary.length > 0) {
                 summary += ", ";
             }
             summary += level.balls + " balls";
+        } else {
+            delete level["balls"];
         }
-        if (level.blocks) {
+        if (level.blocks && level.blocks > 0) {
             if (summary.length > 0) {
                 summary += ", ";
             }
             summary += level.blocks + " blocks";
+        } else {
+            delete level["blocks"];
         }
-        if (level.disks) {
+        if (level.disks && level.disks > 0 ) {
             if (summary.length > 0) {
                 summary += ", ";
             }
             summary += level.disks + " disks";
+        } else {
+            delete level["disks"];
         }
-        if (level.fences) {
+        if (level.fences && level.fences !== 0) {
             if (summary.length > 0) {
                 summary += ", ";
             }
-            summary += level.fences + " fences";
+            if (level.fences === 15) {
+                summary += "all fences";
+            } else {
+                if ((level.fences & 1) !==0) {
+                    summary += "back "
+                }
+                if ((level.fences & 2) !==0) {
+                    summary += "front "
+                }
+                if ((level.fences & 4) !==0) {
+                    summary += "left "
+                }
+                if ((level.fences & 8) !==0) {
+                    summary += "right "
+                }
+                summary +=  "fences";
+            }
+        } else {
+            delete level["fences"];
         }
         return summary;
     }
@@ -257,19 +373,33 @@
         $("#tablePicker").val(gameData.table_color);
         $("#fencePicker").val(gameData.fence_color);
         $("#barrierPicker").val(gameData.barrier_color);
-        gameData.levels.forEach((level, index) => {
+
+            gameData.levels.forEach((level, index) => {
 //            console.log($(this));
             levelNo += 1;
             let $copy = $level_proto.clone(true);
-            $copy.find("[data-field='summary']").text(summarize(level));
+            let $summary = $copy.find("[data-field='summary']");
+            $summary.text(summarize(level));
             if (level.help) {
 //                console.log("Help:", level.help);
                 $copy.find("[data-field='help']").html(level.help.replaceAll("\n","&#9166;"));
             }
             $copy.find("[data-field='level']").text(levelNo);
             $copy.find("[data-field='newLevel']").text(levelNo);
+            $copy.attr("data-level",levelNo);
             $copy.removeClass("prototype");
             $copy.removeClass("d-none");
+            $copy.find("[data-field='edit']").on("click", {level: level, element: $summary}, function(event) {
+                let $offcanvas = $("#levelPanel");
+                $offcanvas.addClass("show");
+                $offcanvas.off('hide.bs.offcanvas');
+                $offcanvas.on('hide.bs.offcanvas', event.data, function(event) {
+                    console.log('Modal is starting to close..., resummarize');
+                    let level = event.data.level;
+                    event.data.element.text(summarize(level));
+                });
+                loadLevelEditor(event.data.level);
+            });
             $("#levels").append($copy);
         });
         new Sortable(levels, {
@@ -278,8 +408,53 @@
             onEnd: seq_changed,
         });
     }
-    function unload_levels_table() {
-        $("#levels").empty();
+
+    function load_game_details() {
+        $("#gameName").val(gameName);
+        $("#gameDescr").val(gameData.name);
+        $("#gameDescr").trigger('change');
+        $("#pace").val(gameData.pace);
+        $("#pace").trigger('change');
+    }
+    // Load the level editor data
+    function loadLevelEditor(level) {
+        $(".level-update").off('change');
+        $("[data-level-field]").each( function() {
+            let field = $(this).attr("data-level-field");
+//            console.log("Field:", field);
+            if (level[field]) {
+                $(this).val(level[field]);
+            } else {
+                $(this).val("0");
+            }
+            $(this).trigger('change');
+        })
+        if (level.fences) {
+            $("#fenceback").prop("checked", ((level.fences & 1) !== 0));
+            $("#fencefront").prop("checked", ((level.fences & 2) !== 0));
+            $("#fenceleft").prop("checked", ((level.fences & 4) !== 0));
+            $("#fenceright").prop("checked", ((level.fences & 8) !== 0));
+        } else {
+            $("#fenceback").prop("checked", false);
+            $("#fencefront").prop("checked", false);
+            $("#fenceleft").prop("checked", false);
+            $("#fenceright").prop("checked", false);
+
+        }
+        $(".level-update").on('change', level, function() {
+            $("[data-level-field]").each( function() {
+                let field = $(this).attr("data-level-field");
+                level[field] = $(this).val();
+            });
+            // level.balls = $("#editballs").val();
+            // level.blocks = $("#editblocks").val();
+            // level.disks = $("#editdisks").val();
+            level.fences =
+                $("#fenceback").prop("checked") << 0 |
+                $("#fencefront").prop("checked") << 1 |
+                $("#fenceleft").prop("checked") << 2 |
+                $("#fenceright").prop("checked") << 3;
+        });
     }
 </script>
 </body>
