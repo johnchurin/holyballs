@@ -144,32 +144,36 @@
 <div class="offcanvas offcanvas-end" tabindex="-1" id="levelPanel" aria-labelledby="levelPanelLabel">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="levelPanelLabel">Game Level</h5>
-        <button type="button" class="btn-close" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body level-update">
-        <label class="form-label small fw-bold" data-name="Balls" for="editballs"></label>
-            <input id="editballs" type="range" class="form-range level-edit"  data-level-field="balls" min="1" max="20">
-        <label class="form-label small fw-bold" data-name="Blacks" for="editblacks"></label>
-            <input id="editblacks" type="range" class="form-range level-edit"  data-level-field="blacks" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Blocks"  for="editblocks"></label>
-            <input id="editblocks" type="range" class="form-range level-edit" data-level-field="blocks" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Bumpies" for="editbumpys"></label>
-            <input id="editbumpys" type="range" class="form-range level-edit"  data-level-field="bumpys" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Cones" for="editcones"></label>
-            <input id="editcones" type="range" class="form-range level-edit"  data-level-field="cones" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Cylinders" for="editcylinders"></label>
-            <input id="editcylinders" type="range" class="form-range level-edit"  data-level-field="cylinders" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Dips" for="editdips"></label>
-            <input id="editdips" type="range" class="form-range level-edit"  data-level-field="dips" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Disks" for="editdisks"></label>
-            <input id="editdisks" type="range" class="form-range level-edit"  data-level-field="disks" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="GHosts" for="editghosts"></label>
-            <input id="editghosts" type="range" class="form-range level-edit"  data-level-field="ghosts" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Lifesavers" for="editlifesavers"></label>
-            <input id="editlifesavers" type="range" class="form-range level-edit"  data-level-field="lifesavers" min="0" max="20">
-        <label class="form-label small fw-bold" data-name="Spikeys" for="editspikeys"></label>
-            <input id="editspikeys" type="range" class="form-range level-edit"  data-level-field="spikeys" min="0" max="20">
-
+    <div class="offcanvas-body m-3 level-update">
+        <div class="row">
+            <div class="col">
+                <label class="form-label small fw-bold" data-name="Balls" for="editballs"></label>
+                    <input id="editballs" type="range" class="form-range level-edit"  data-level-field="balls" min="1" max="20">
+                <label class="form-label small fw-bold" data-name="Blacks" for="editblacks"></label>
+                    <input id="editblacks" type="range" class="form-range level-edit"  data-level-field="blacks" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Blocks"  for="editblocks"></label>
+                    <input id="editblocks" type="range" class="form-range level-edit" data-level-field="blocks" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Bumpies" for="editbumpys"></label>
+                    <input id="editbumpys" type="range" class="form-range level-edit"  data-level-field="bumpys" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Cones" for="editcones"></label>
+                    <input id="editcones" type="range" class="form-range level-edit"  data-level-field="cones" min="0" max="20">
+            </div>
+            <div class="col">
+                <label class="form-label small fw-bold" data-name="Cylinders" for="editcylinders"></label>
+                    <input id="editcylinders" type="range" class="form-range level-edit"  data-level-field="cylinders" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Dips" for="editdips"></label>
+                    <input id="editdips" type="range" class="form-range level-edit"  data-level-field="dips" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Disks" for="editdisks"></label>
+                    <input id="editdisks" type="range" class="form-range level-edit"  data-level-field="disks" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Ghosts" for="editghosts"></label>
+                    <input id="editghosts" type="range" class="form-range level-edit"  data-level-field="ghosts" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Lifesavers" for="editlifesavers"></label>
+                    <input id="editlifesavers" type="range" class="form-range level-edit"  data-level-field="lifesavers" min="0" max="20">
+                <label class="form-label small fw-bold" data-name="Spikeys" for="editspikeys"></label>
+                    <input id="editspikeys" type="range" class="form-range level-edit"  data-level-field="spikeys" min="0" max="20">
+            </div>
+        </div>
         <div class="form-check mb-2">
             <label class="form-label small fw-bold">Targets</label>
             <div class="row">
@@ -204,7 +208,8 @@
                 </div>
             </div>
         </div>
-
+        <label for="levelHelp">Help:</label>
+        <textarea id="levelHelp" name="feedback" rows="3" cols="40" placeholder="Helpful info about this level"></textarea>
         <button id="doneEditing" class="btn btn-primary">Done Editing Level</button>
     </div>
 </div>
@@ -257,7 +262,7 @@
         $("#pace").on('change', function() {
             let $label = $('label[for="' + $(this).attr('id') + '"]');
             let pace = $(this).val();
-            $label.text("Pace " + pace +"ms");
+            $label.text("Toy Drop Pace " + pace +"ms");
             // Update gameData
             gameData.pace = pace;
 //            console.log($(this).val());
@@ -267,6 +272,7 @@
             gameData.name = descr;
         });
         $("#doneEditing").on("click", function() {
+            $("[data-new-level]").removeClass("table-danger");
             $(".offcanvas").removeClass("show");
             $(".offcanvas").trigger('hide.bs.offcanvas');
         });
@@ -298,30 +304,18 @@
 
     function summarize(level) {
         let summary = "";
-        if (level.balls && level.balls > 0) {
-            if (summary.length > 0) {
-                summary += ", ";
+        $("[data-level-field]").each( function() {
+            let field = $(this).attr("data-level-field");
+//            console.log("Field:", field);
+            if (level[field] && level[field] > 0) {
+                if (summary.length > 0) {
+                    summary += ", ";
+                }
+                summary += level[field] + " " + field;
+            } else {
+                delete level[field];
             }
-            summary += level.balls + " balls";
-        } else {
-            delete level["balls"];
-        }
-        if (level.blocks && level.blocks > 0) {
-            if (summary.length > 0) {
-                summary += ", ";
-            }
-            summary += level.blocks + " blocks";
-        } else {
-            delete level["blocks"];
-        }
-        if (level.disks && level.disks > 0 ) {
-            if (summary.length > 0) {
-                summary += ", ";
-            }
-            summary += level.disks + " disks";
-        } else {
-            delete level["disks"];
-        }
+        });
         if (level.fences && level.fences !== 0) {
             if (summary.length > 0) {
                 summary += ", ";
@@ -360,6 +354,7 @@
         let newLevel = 0;
         $("#levels tr").each(function(index, level) {
             newLevel += 1;
+            $(this).attr("data-new-level", newLevel);
 //            console.log("Level:", newLevel, ", index:", index, ":", level.html);
             $(level).find("[data-field='newLevel']").text(index+1);
         });
@@ -387,18 +382,30 @@
             $copy.find("[data-field='level']").text(levelNo);
             $copy.find("[data-field='newLevel']").text(levelNo);
             $copy.attr("data-level",levelNo);
+            $copy.attr("data-new-level", levelNo);
             $copy.removeClass("prototype");
             $copy.removeClass("d-none");
-            $copy.find("[data-field='edit']").on("click", {level: level, element: $summary}, function(event) {
+            $copy.find("[data-field='edit']").on("click", {level: level, element: $summary, copy: $copy}, function(event) {
                 let $offcanvas = $("#levelPanel");
                 $offcanvas.addClass("show");
                 $offcanvas.off('hide.bs.offcanvas');
                 $offcanvas.on('hide.bs.offcanvas', event.data, function(event) {
-                    console.log('Modal is starting to close..., resummarize');
+                    // Resummerize the level
                     let level = event.data.level;
                     event.data.element.text(summarize(level));
+                    if (level.help) {
+                        event.data.copy.find("[data-field='help']").html(level.help.replaceAll("\n","&#9166;"));
+                    } else {
+                        $(this).find("[data-field='help']").html("");
+                    }
+
                 });
                 loadLevelEditor(event.data.level);
+                let $row = $(this).closest("[data-new-level]");
+                $row.addClass("table-danger");
+                let newLevel = $row.attr("data-new-level");
+                console.log("Level div", newLevel);
+                $("#levelPanelLabel").text("Game " + gameName + ", Level: " + newLevel);
             });
             $("#levels").append($copy);
         });
@@ -441,6 +448,7 @@
             $("#fenceright").prop("checked", false);
 
         }
+        $("#levelHelp").val(level.help);
         $(".level-update").on('change', level, function() {
             $("[data-level-field]").each( function() {
                 let field = $(this).attr("data-level-field");
@@ -454,6 +462,7 @@
                 $("#fencefront").prop("checked") << 1 |
                 $("#fenceleft").prop("checked") << 2 |
                 $("#fenceright").prop("checked") << 3;
+            level.help = $("#levelHelp").val();
         });
     }
 </script>
